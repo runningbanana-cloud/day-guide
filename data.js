@@ -33,6 +33,9 @@ const GEHZEIT_ZUHAUSE_HALTESTELLE = 10;
 // Name der Starthaltestelle, wie sie transport.opendata.ch kennt.
 const ETAPPE2_START = "Wil SG, Bahnhof";
 
+// Liniennummer, die Richtung Kanti fährt (nur diese wird berücksichtigt).
+const ETAPPE2_LINIE = "733";
+
 // Gehzeit vom Bahnhof Wil direkt zur Kanti, in Minuten.
 const GEHZEIT_BAHNHOF_KANTI = 10;
 

@@ -81,10 +81,12 @@ function weatherCodeToText(code) {
   if (code === 0) return "Klar";
   if ([1, 2, 3].includes(code)) return "Bewölkt";
   if ([45, 48].includes(code)) return "Nebel";
-  if ([51, 53, 55, 61, 63, 65].includes(code)) return "Regen";
-  if ([71, 73, 75].includes(code)) return "Schnee";
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67].includes(code)) return "Regen";
+  if ([71, 73, 75, 77].includes(code)) return "Schnee";
+  if ([80, 81, 82].includes(code)) return "Schauer";
+  if ([85, 86].includes(code)) return "Schneeschauer";
   if ([95, 96, 99].includes(code)) return "Gewitter";
-  return "–";
+  return "Wechselhaft";
 }
 
 // --- Bus: Etappe 1 (fest) + Etappe 2 (live, mit Lauf-Empfehlung) ---
@@ -109,18 +111,20 @@ async function loadBus() {
 
   el.innerHTML = html + `<div class="empty" id="etappe2-slot">Etappe 2 lädt…</div>`;
 
-  // Etappe 2: live Abfahrten ab Wil Bahnhof
+  // Etappe 2: live Abfahrten ab Wil Bahnhof, gefiltert nach passender Linie
   try {
-    const url = `https://transport.opendata.ch/v1/stationboard?station=${encodeURIComponent(ETAPPE2_START)}&limit=5`;
+    const url = `https://transport.opendata.ch/v1/stationboard?station=${encodeURIComponent(ETAPPE2_START)}&limit=20`;
     const res = await fetch(url);
     const data = await res.json();
 
-    const naechste = data.stationboard[0];
+    // Nur Abfahrten der richtigen Linie berücksichtigen
+    const passende = data.stationboard.filter(a => a.number === ETAPPE2_LINIE);
+    const naechste = passende[0];
     const slot = document.getElementById("etappe2-slot");
 
     if (!naechste) {
       slot.className = "empty";
-      slot.textContent = "Keine Abfahrten gefunden.";
+      slot.textContent = `Keine Abfahrt der Linie ${ETAPPE2_LINIE} gefunden.`;
       return;
     }
 
