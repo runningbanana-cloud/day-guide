@@ -120,6 +120,16 @@
 
   .empty { color: var(--text-dim); font-size: 14px; }
   .error { color: #b8604f; font-size: 13px; }
+
+  /* Kompakte Darstellung für Sektionen, die gerade weniger wichtig sind */
+  .section.compact { padding: 14px 0; }
+  .section.compact .section-label { font-size: 10px; margin-bottom: 8px; }
+  .section.compact { font-size: 13px; }
+  .section.compact .weather-temp { font-size: 20px; }
+  .section.compact .board-row,
+  .section.compact .lesson-row,
+  .section.compact .exam-row { font-size: 12px; }
+  .section.compact .recommendation { font-size: 12px; }
 </style>
 </head>
 <body>
@@ -129,25 +139,25 @@
   <div class="date" id="today-date"></div>
 
   <!-- Wetter -->
-  <div class="section">
+  <div class="section" id="section-weather">
     <div class="section-label">Wetter</div>
     <div id="weather-content" class="empty">Lädt…</div>
   </div>
 
   <!-- Bus -->
-  <div class="section">
+  <div class="section" id="section-bus">
     <div class="section-label">Weg zur Kanti</div>
     <div id="bus-content" class="empty">Lädt…</div>
   </div>
 
   <!-- Stundenplan -->
-  <div class="section">
+  <div class="section" id="section-lessons">
     <div class="section-label">Stundenplan heute</div>
     <div id="lessons-content" class="empty">–</div>
   </div>
 
   <!-- Prüfungen -->
-  <div class="section">
+  <div class="section" id="section-exams">
     <div class="section-label">Nächste Prüfungen</div>
     <div id="exams-content" class="empty">–</div>
   </div>
