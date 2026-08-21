@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Day Guide</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000000;
+    --text: #ffffff;
+    --text-dim: #7a7a7a;
+    --text-mid: #b0b0b0;
+    --amber: #d8a35e;
+    --line: #1a1a1a;
+    --font-display: 'Fraunces', serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-weight: 400;
+    min-height: 100vh;
+    padding: 48px 22px 70px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 440px; margin: 0 auto; }
+
+  .greeting {
+    font-family: var(--font-display);
+    font-size: clamp(26px, 7.5vw, 32px);
+    font-weight: 400;
+    font-optical-sizing: auto;
+    margin: 0 0 2px;
+    letter-spacing: -0.01em;
+  }
+
+  .date {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 44px;
+  }
+
+  .section {
+    padding: 22px 0;
+    border-top: 1px solid var(--line);
+  }
+  .section:last-child { padding-bottom: 0; }
+
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  /* Wetter */
+  .weather-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .weather-temp {
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 400;
+  }
+  .weather-desc { color: var(--text-mid); font-size: 14px; }
+
+  /* Bus – ruhige Textzeilen statt Tafel-Look */
+  .board-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 14px;
+  }
+  .board-route { color: var(--text-mid); }
+  .board-time { color: var(--text); font-variant-numeric: tabular-nums; }
+  .board-delay { color: var(--amber); font-size: 12px; margin-left: 6px; }
+
+  .recommendation {
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--amber);
+  }
+
+  /* Stundenplan */
+  .lesson-row {
+    display: flex;
+    gap: 14px;
+    padding: 5px 0;
+    font-size: 14px;
+  }
+  .lesson-time { color: var(--text-dim); width: 40px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+  /* Prüfungen */
+  .exam-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 14px;
+  }
+  .exam-days { color: var(--text-dim); font-size: 13px; }
+
+  .empty { color: var(--text-dim); font-size: 14px; }
+  .error { color: #b8604f; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="greeting" id="greeting">Guten Morgen</div>
+  <div class="date" id="today-date"></div>
+
+  <!-- Wetter -->
+  <div class="section">
+    <div class="section-label">Wetter</div>
+    <div id="weather-content" class="empty">Lädt…</div>
+  </div>
+
+  <!-- Bus -->
+  <div class="section">
+    <div class="section-label">Weg zur Kanti</div>
+    <div id="bus-content" class="empty">Lädt…</div>
+  </div>
+
+  <!-- Stundenplan -->
+  <div class="section">
+    <div class="section-label">Stundenplan heute</div>
+    <div id="lessons-content" class="empty">–</div>
+  </div>
+
+  <!-- Prüfungen -->
+  <div class="section">
+    <div class="section-label">Nächste Prüfungen</div>
+    <div id="exams-content" class="empty">–</div>
+  </div>
+
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
