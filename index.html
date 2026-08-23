@@ -121,6 +121,57 @@
   .empty { color: var(--text-dim); font-size: 14px; }
   .error { color: #b8604f; font-size: 13px; }
 
+  /* Aufklappbare Details (Wetter-Prognose, weitere Busse, alle Prüfungen) */
+  .toggle-hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .expanded { margin-top: 10px; }
+  .sub-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin: 14px 0 6px;
+  }
+  .sub-label:first-child { margin-top: 0; }
+  .hourly-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 13px;
+    color: var(--text-mid);
+  }
+  .forecast-day-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+    color: var(--text-mid);
+  }
+  .forecast-day-date { color: var(--text); width: 70px; flex-shrink: 0; }
+
+  /* Nächste Stunde – prominent, damit ein kurzer Blick reicht */
+  .next-lesson-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .next-lesson-subject {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 400;
+  }
+  .next-lesson-time {
+    color: var(--text-mid);
+    font-size: 14px;
+  }
+
   /* Kompakte Darstellung für Sektionen, die gerade weniger wichtig sind */
   .section.compact { padding: 14px 0; }
   .section.compact .section-label { font-size: 10px; margin-bottom: 8px; }
@@ -137,6 +188,12 @@
 
   <div class="greeting" id="greeting">Guten Morgen</div>
   <div class="date" id="today-date"></div>
+
+  <!-- Nächste Stunde (nur während des Unterrichts sichtbar) -->
+  <div class="section" id="section-nextlesson" style="display:none;">
+    <div class="section-label">Nächste Stunde</div>
+    <div id="nextlesson-content" class="empty">–</div>
+  </div>
 
   <!-- Wetter -->
   <div class="section" id="section-weather">
