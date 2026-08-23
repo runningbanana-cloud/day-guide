@@ -7,23 +7,57 @@ const WOCHENTAGE = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "
 
 function init() {
   setGreetingAndDate();
-  applyTimeOfDayLayout();
+  const wochenende = istWochenende();
+  applyTimeOfDayLayout(wochenende);
   loadWeather();
-  loadBus();
-  loadLessons();
+  if (!wochenende) {
+    loadBus();
+  }
+  loadLessons(wochenende);
   loadExams();
 }
 
-// --- Tagesablauf: morgens Bus/Wetter im Fokus, später Stundenplan/Prüfungen ---
-function applyTimeOfDayLayout() {
-  const hour = new Date().getHours();
-  const istMorgen = hour < 13; // vor/während der Schule
+function istWochenende() {
+  const tag = new Date().getDay();
+  return tag === 0 || tag === 6; // Sonntag oder Samstag
+}
 
+// --- Begrüßung & Datum ---
+function setGreetingAndDate() {
+  const now = new Date();
+  const hour = now.getHours();
+  let greeting = "Guten Morgen";
+  if (hour >= 12 && hour < 18) greeting = "Guten Tag";
+  else if (hour >= 18) greeting = "Guten Abend";
+  document.getElementById("greeting").textContent = greeting;
+
+  const dateStr = now.toLocaleDateString("de-CH", { weekday: "long", day: "numeric", month: "long" });
+  document.getElementById("today-date").textContent = dateStr;
+}
+
+// --- Tagesablauf: morgens Bus/Wetter im Fokus, später Stundenplan/Prüfungen ---
+function applyTimeOfDayLayout(wochenende) {
   const wetter = document.getElementById("section-weather");
   const bus = document.getElementById("section-bus");
   const lessons = document.getElementById("section-lessons");
   const exams = document.getElementById("section-exams");
   const wrap = wetter.parentElement;
+
+  if (wochenende) {
+    // Am Wochenende: Bus und Stundenplan komplett ausblenden
+    bus.style.display = "none";
+    lessons.style.display = "none";
+    wrap.append(wetter, exams);
+    wetter.classList.remove("compact");
+    exams.classList.remove("compact");
+    return;
+  }
+
+  bus.style.display = "";
+  lessons.style.display = "";
+
+  const hour = new Date().getHours();
+  const istMorgen = hour < 13; // vor/während der Schule
 
   if (istMorgen) {
     // Reihenfolge: Wetter, Bus, dann kompakt Stundenplan, Prüfungen
@@ -40,19 +74,6 @@ function applyTimeOfDayLayout() {
     wetter.classList.add("compact");
     bus.classList.add("compact");
   }
-}
-
-// --- Begrüßung & Datum ---
-function setGreetingAndDate() {
-  const now = new Date();
-  const hour = now.getHours();
-  let greeting = "Guten Morgen";
-  if (hour >= 12 && hour < 18) greeting = "Guten Tag";
-  else if (hour >= 18) greeting = "Guten Abend";
-  document.getElementById("greeting").textContent = greeting;
-
-  const dateStr = now.toLocaleDateString("de-CH", { weekday: "long", day: "numeric", month: "long" });
-  document.getElementById("today-date").textContent = dateStr;
 }
 
 // --- Wetter (Open-Meteo, kein API-Key nötig) ---
@@ -161,7 +182,9 @@ async function loadBus() {
 }
 
 // --- Stundenplan ---
-function loadLessons() {
+function loadLessons(wochenende) {
+  if (wochenende) return; // Sektion ist ausgeblendet, nichts zu tun
+
   const el = document.getElementById("lessons-content");
   const weekday = new Date().getDay();
   const heute = STUNDENPLAN.filter(l => l.weekday === weekday).sort((a, b) => a.time.localeCompare(b.time));
