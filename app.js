@@ -7,6 +7,7 @@ const WOCHENTAGE = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "
 
 function init() {
   setGreetingAndDate();
+  loadNotiz();
   const phase = getTagesPhase();
   applyTimeOfDayLayout(phase);
   loadWeather();
@@ -15,6 +16,59 @@ function init() {
   loadLessons(phase === "wochenende");
   loadExams();
   loadNews();
+  setupScrollReveal();
+}
+
+// --- Sektionen beim Reinscrollen von dunkel zu hell einblenden ---
+function setupScrollReveal() {
+  const sections = document.querySelectorAll(".section");
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("visible");
+        observer.unobserve(entry.target); // nur einmal pro Sektion
+      }
+    });
+  }, { threshold: 0.15 });
+
+  sections.forEach(sec => {
+    sec.classList.add("reveal");
+    observer.observe(sec);
+  });
+}
+
+// --- Merkzettel: ein Feld, Überschrift zeigt den Inhalt oder "Notes" ---
+function loadNotiz() {
+  const display = document.getElementById("notiz-display");
+  const edit = document.getElementById("notiz-edit");
+  const gespeichert = localStorage.getItem("dayguide_notiz") || "";
+
+  updateNotizDisplay(display, gespeichert);
+  edit.value = gespeichert;
+
+  display.addEventListener("click", () => {
+    display.style.display = "none";
+    edit.style.display = "block";
+    edit.focus();
+  });
+
+  edit.addEventListener("blur", () => {
+    const text = edit.value.trim();
+    localStorage.setItem("dayguide_notiz", text);
+    updateNotizDisplay(display, text);
+    edit.style.display = "none";
+    display.style.display = "block";
+  });
+}
+
+function updateNotizDisplay(display, text) {
+  if (text) {
+    display.textContent = text;
+    display.className = "notiz-display filled";
+  } else {
+    display.textContent = "Notes";
+    display.className = "notiz-display empty";
+  }
 }
 
 function istWochenende() {
@@ -55,12 +109,15 @@ function getTagesPhase() {
 // --- Steuert, welche Bus-Ansicht gezeigt wird: Hinweg, ausgeblendet (Unterricht) oder Heimweg ---
 function handleBusSection(phase) {
   const bus = document.getElementById("section-bus");
+  const label = document.getElementById("bus-label");
 
   if (phase === "vor" || phase === "keineLektionen") {
     bus.style.display = "";
+    label.innerHTML = `Weg zur Kanti <span class="live-dot"></span>`;
     loadBusHinweg();
   } else if (phase === "heimweg") {
     bus.style.display = "";
+    label.innerHTML = `Heimweg <span class="live-dot"></span>`;
     loadBusHeimweg();
   } else {
     // wochenende oder unterricht: Bus-Bereich ausblenden
@@ -180,7 +237,15 @@ async function loadWeather() {
       </div>
       ${naechsteStunde ? `<div class="weather-desc" style="margin-top:2px;">Nächste Stunde: ${naechsteStunde}</div>` : ""}
       <div class="toggle-hint">Mehr Prognose</div>
-      <div class="expanded" style="display:none;"></div>`;
+      <div class="expanded" style="display:none;"></div>
+      <div class="toggle-hint" id="radar-toggle" style="margin-top:6px;">Regenradar</div>
+      <div class="radar-container" id="radar-container" style="display:none;">
+        <div id="radar-map"></div>
+        <div class="radar-controls">
+          <span class="radar-time" id="radar-time">–</span>
+          <input type="range" class="radar-slider" id="radar-slider" min="0" max="0" value="0">
+        </div>
+      </div>`;
 
     const hint = el.querySelector(".toggle-hint");
     const panel = el.querySelector(".expanded");
@@ -198,9 +263,23 @@ async function loadWeather() {
         hint.textContent = "Weniger anzeigen";
       }
     });
+
+    const radarHint = document.getElementById("radar-toggle");
+    const radarContainer = document.getElementById("radar-container");
+    radarHint.addEventListener("click", () => {
+      const geoeffnet = radarContainer.style.display !== "none";
+      if (geoeffnet) {
+        radarContainer.style.display = "none";
+        radarHint.textContent = "Regenradar";
+      } else {
+        radarContainer.style.display = "block";
+        radarHint.textContent = "Regenradar ausblenden";
+        initRadarMap();
+      }
+    });
   } catch (err) {
     el.className = "error";
-    el.textContent = "Wetter konnte nicht geladen werden.";
+    el.innerHTML = `Wetter konnte nicht geladen werden. <span class="retry-link" onclick="loadWeather()">Nochmal versuchen</span>`;
   }
 }
 
@@ -211,6 +290,62 @@ function getNaechsteStundeText(data) {
   const idx = data.hourly.time.findIndex(t => t.startsWith(iso));
   if (idx === -1) return null;
   return weatherCodeToText(data.hourly.weather_code[idx]);
+}
+
+// --- Regenradar mit Zeitschieberegler (RainViewer, kostenlos, kein Key nötig) ---
+async function initRadarMap() {
+  const mapDiv = document.getElementById("radar-map");
+  if (mapDiv.dataset.initialisiert) return; // nur einmal laden
+  mapDiv.dataset.initialisiert = "1";
+
+  try {
+    const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+    const daten = await res.json();
+    const frames = [...(daten.radar.past || []), ...(daten.radar.nowcast || [])];
+
+    if (frames.length === 0) {
+      mapDiv.textContent = "Keine Radar-Daten verfügbar.";
+      return;
+    }
+
+    const map = L.map("radar-map", { zoomControl: false, attributionControl: false })
+      .setView([WEATHER_LOCATION.lat, WEATHER_LOCATION.lon], 8);
+
+    // Eigene "Pane" für den Radar-Layer, damit wir per CSS-Filter aus den
+    // Farben ein Schwarz-Weiss-Bild machen: Grauwerte + Invertierung.
+    // Da stärkerer Regen bei RainViewer dunklere, gesättigtere Farben hat,
+    // wird er nach der Invertierung automatisch heller/weisser.
+    map.createPane("radarPane");
+    map.getPane("radarPane").style.filter = "grayscale(1) invert(1) contrast(1.3) brightness(1.1)";
+
+    const tileSize = 256;
+    let radarLayer = null;
+
+    function zeigeFrame(index) {
+      const frame = frames[index];
+      const url = `${daten.host}${frame.path}/${tileSize}/{z}/{x}/{y}/2/1_1.png`;
+      if (!radarLayer) {
+        radarLayer = L.tileLayer(url, { opacity: 1, pane: "radarPane" }).addTo(map);
+      } else {
+        radarLayer.setUrl(url);
+      }
+      document.getElementById("radar-time").textContent =
+        new Date(frame.time * 1000).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    const slider = document.getElementById("radar-slider");
+    slider.max = frames.length - 1;
+    const jetztIndex = Math.max((daten.radar.past || []).length - 1, 0);
+    slider.value = jetztIndex;
+    zeigeFrame(jetztIndex);
+
+    slider.addEventListener("input", () => zeigeFrame(Number(slider.value)));
+
+    // Karte war beim Erstellen unsichtbar (display:none) -> Grösse neu berechnen
+    setTimeout(() => map.invalidateSize(), 100);
+  } catch (err) {
+    mapDiv.textContent = "Regenradar konnte nicht geladen werden.";
+  }
 }
 
 function buildWeatherForecastHtml(data) {
@@ -350,7 +485,7 @@ async function loadBusHinweg() {
     const slot = document.getElementById("etappe2-slot");
     if (slot) {
       slot.className = "error";
-      slot.textContent = "Live-Busdaten konnten nicht geladen werden.";
+      slot.innerHTML = `Live-Busdaten konnten nicht geladen werden. <span class="retry-link" onclick="loadBusHinweg()">Nochmal versuchen</span>`;
     }
   }
 }
@@ -428,7 +563,7 @@ async function loadBusHeimweg() {
     const slot = document.getElementById("heim1-slot");
     if (slot) {
       slot.className = "error";
-      slot.textContent = "Live-Busdaten konnten nicht geladen werden.";
+      slot.innerHTML = `Live-Busdaten konnten nicht geladen werden. <span class="retry-link" onclick="loadBusHeimweg()">Nochmal versuchen</span>`;
     }
   }
 
@@ -461,7 +596,7 @@ async function loadBusHeimweg() {
     const slot = document.getElementById("heim2-slot");
     if (slot) {
       slot.className = "error";
-      slot.textContent = "Live-Busdaten konnten nicht geladen werden.";
+      slot.innerHTML = `Live-Busdaten konnten nicht geladen werden. <span class="retry-link" onclick="loadBusHeimweg()">Nochmal versuchen</span>`;
     }
   }
 }
@@ -550,18 +685,13 @@ const NEWS_FEEDS = [
 ];
 const NEWS_CACHE_KEY = "dayguide_news_cache";
 
-// Fussball wird grundsätzlich rausgefiltert, ausser ein Ausnahme-Begriff
-// deutet auf etwas wirklich Grosses hin (WM-Final o. ä.). Das ist nur eine
-// grobe Annäherung per Stichwort, kein zuverlässiger "Wichtigkeits-Check".
-const FUSSBALL_STICHWORTE = ["fussball", "fcb", "fcz", "yb ", "meisterschaft", "bundesliga", "champions league", "super league", "nati "];
-const FUSSBALL_AUSNAHMEN = ["wm-final", "weltmeister", "em-final", "historisch", "rekord"];
+// Fussball wird immer aus den Neuigkeiten rausgefiltert. Erkennung läuft
+// über den URL-Pfad (z. B. srf.ch/sport/fussball/...), das ist deutlich
+// zuverlässiger als nach Stichworten im Titel zu suchen.
+const FUSSBALL_PFADE = ["/sport/fussball/", "/sport/frauen-fussball/"];
 
-function istUnerwuenschterFussball(titel) {
-  const t = titel.toLowerCase();
-  const istFussball = FUSSBALL_STICHWORTE.some(w => t.includes(w));
-  if (!istFussball) return false;
-  const istAusnahme = FUSSBALL_AUSNAHMEN.some(w => t.includes(w));
-  return !istAusnahme;
+function istUnerwuenschterFussball(item) {
+  return FUSSBALL_PFADE.some(p => item.link.includes(p));
 }
 
 function getNewsSlot() {
@@ -575,14 +705,20 @@ function heuteStr() {
 
 async function loadNews() {
   try {
-    const cacheRaw = localStorage.getItem(NEWS_CACHE_KEY);
     const aktuellerSlot = getNewsSlot();
     const heute = heuteStr();
 
+    // Merkt sich, ob dieses Zeitfenster (morgen/mittag) heute schon
+    // angeschaut wurde -> erstes Mal = volle Liste, danach kompakt.
+    const gesehenKey = `dayguide_news_gesehen_${heute}_${aktuellerSlot}`;
+    const erstesMal = !localStorage.getItem(gesehenKey);
+    localStorage.setItem(gesehenKey, "1");
+
+    const cacheRaw = localStorage.getItem(NEWS_CACHE_KEY);
     if (cacheRaw) {
       const cache = JSON.parse(cacheRaw);
       if (cache.datum === heute && cache.slot === aktuellerSlot) {
-        renderNews(cache.items);
+        renderNews(cache.items, erstesMal);
         return;
       }
     }
@@ -597,37 +733,60 @@ async function loadNews() {
           title: item.title,
           link: item.link,
           pubDate: item.pubDate,
+          description: item.description,
           quelle: feed.quelle,
         }));
       }
     }
 
-    const gefiltert = alle.filter(i => !istUnerwuenschterFussball(i.title));
+    const gefiltert = alle.filter(i => !istUnerwuenschterFussball(i));
     gefiltert.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
     const top = gefiltert.slice(0, 3); // maximal 3, kann auch weniger sein
 
     localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify({ datum: heute, slot: aktuellerSlot, items: top }));
-    renderNews(top);
+    renderNews(top, erstesMal);
   } catch (err) {
     const el = document.getElementById("news-content");
     el.className = "error";
-    el.textContent = "News konnten nicht geladen werden.";
+    el.innerHTML = `News konnten nicht geladen werden. <span class="retry-link" onclick="loadNews()">Nochmal versuchen</span>`;
   }
 }
 
-function renderNews(items) {
+function renderNews(items, erstesMal) {
   const el = document.getElementById("news-content");
   if (!items || items.length === 0) {
     el.className = "empty";
     el.textContent = "Keine Neuigkeiten verfügbar.";
     return;
   }
-  el.className = "";
-  el.innerHTML = items.map(i => `
+
+  const listHtml = items.map(i => `
     <a class="news-row" href="${i.link}" target="_blank" rel="noopener">
       <span class="news-title">${i.title}</span>
       <span class="news-source">${i.quelle}</span>
     </a>`).join("");
+
+  el.className = "";
+
+  if (erstesMal) {
+    // Erstes Mal in diesem Zeitfenster: volle Liste direkt zeigen
+    el.innerHTML = listHtml;
+    return;
+  }
+
+  // Schon gesehen: kompakt, per Klick aufklappbar
+  const anzahlText = `${items.length} Meldung${items.length === 1 ? "" : "en"} anzeigen`;
+  el.innerHTML = `
+    <div class="toggle-hint" id="news-toggle">${anzahlText}</div>
+    <div class="expanded" style="display:none;">${listHtml}</div>`;
+
+  const hint = document.getElementById("news-toggle");
+  const panel = hint.nextElementSibling;
+  hint.addEventListener("click", () => {
+    const geoeffnet = panel.style.display !== "none";
+    panel.style.display = geoeffnet ? "none" : "block";
+    hint.textContent = geoeffnet ? anzahlText : "Weniger anzeigen";
+  });
 }
 
 init();
