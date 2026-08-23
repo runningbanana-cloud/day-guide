@@ -14,6 +14,7 @@ function init() {
   loadNextLesson(phase);
   loadLessons(phase === "wochenende");
   loadExams();
+  loadNews();
 }
 
 function istWochenende() {
@@ -541,4 +542,88 @@ function examRowHtml(p, now) {
     </div>`;
 }
 
-init();
+// --- Neuigkeiten (Schweiz/Welt + Sport, per RSS über rss2json.com) ---
+// Wird höchstens 2x pro Tag neu geladen: einmal morgens, einmal mittags.
+const NEWS_FEEDS = [
+  { url: "https://www.srf.ch/news/bnf/rss/1646", quelle: "SRF News" },
+  { url: "https://www.srf.ch/sport/bnf/rss/718", quelle: "SRF Sport" },
+];
+const NEWS_CACHE_KEY = "dayguide_news_cache";
+
+// Fussball wird grundsätzlich rausgefiltert, ausser ein Ausnahme-Begriff
+// deutet auf etwas wirklich Grosses hin (WM-Final o. ä.). Das ist nur eine
+// grobe Annäherung per Stichwort, kein zuverlässiger "Wichtigkeits-Check".
+const FUSSBALL_STICHWORTE = ["fussball", "fcb", "fcz", "yb ", "meisterschaft", "bundesliga", "champions league", "super league", "nati "];
+const FUSSBALL_AUSNAHMEN = ["wm-final", "weltmeister", "em-final", "historisch", "rekord"];
+
+function istUnerwuenschterFussball(titel) {
+  const t = titel.toLowerCase();
+  const istFussball = FUSSBALL_STICHWORTE.some(w => t.includes(w));
+  if (!istFussball) return false;
+  const istAusnahme = FUSSBALL_AUSNAHMEN.some(w => t.includes(w));
+  return !istAusnahme;
+}
+
+function getNewsSlot() {
+  const hour = new Date().getHours();
+  return hour < 12 ? "morgen" : "mittag";
+}
+
+function heuteStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function loadNews() {
+  try {
+    const cacheRaw = localStorage.getItem(NEWS_CACHE_KEY);
+    const aktuellerSlot = getNewsSlot();
+    const heute = heuteStr();
+
+    if (cacheRaw) {
+      const cache = JSON.parse(cacheRaw);
+      if (cache.datum === heute && cache.slot === aktuellerSlot) {
+        renderNews(cache.items);
+        return;
+      }
+    }
+
+    const alle = [];
+    for (const feed of NEWS_FEEDS) {
+      const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.items) {
+        data.items.forEach(item => alle.push({
+          title: item.title,
+          link: item.link,
+          pubDate: item.pubDate,
+          quelle: feed.quelle,
+        }));
+      }
+    }
+
+    const gefiltert = alle.filter(i => !istUnerwuenschterFussball(i.title));
+    gefiltert.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+    const top = gefiltert.slice(0, 3); // maximal 3, kann auch weniger sein
+
+    localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify({ datum: heute, slot: aktuellerSlot, items: top }));
+    renderNews(top);
+  } catch (err) {
+    const el = document.getElementById("news-content");
+    el.className = "error";
+    el.textContent = "News konnten nicht geladen werden.";
+  }
+}
+
+function renderNews(items) {
+  const el = document.getElementById("news-content");
+  if (!items || items.length === 0) {
+    el.className = "empty";
+    el.textContent = "Keine Neuigkeiten verfügbar.";
+    return;
+  }
+  el.className = "";
+  el.innerHTML = items.map(i => `
+    <a class="news-row" href="${i.link}" target="_blank" rel="noopener">
+      <span class="news-title">${i.title}</span>
+      <span class="news-source">${i.q
