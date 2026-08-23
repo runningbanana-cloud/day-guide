@@ -4,6 +4,22 @@
 // neuer Fahrplan). Der Rest der App (app.js) liest nur daraus.
 // ============================================================
 
+// --- Persönliches ---
+// Dein Name für die Begrüssung.
+const USER_NAME = "Tim";
+
+// Wie viele Minuten vor dem morgigen Bus der Wecker klingeln soll
+// (wird abends bei der Begrüssung als Vorschlag angezeigt).
+const WECKER_VORLAUF_MIN = 55;
+
+// Ab welcher Uhrzeit (Stunde, 0-23) der Wecker-Hinweis überhaupt erscheint.
+const ABEND_STUNDE = 21;
+
+// Zusätzliche Sporttage, die NICHT im Stundenplan stehen (z. B. eigenes
+// Fitness-Training). 0 = Sonntag ... 6 = Samstag. Schulsport (Fach "SPO"
+// im Stundenplan) wird automatisch erkannt, hier nicht nötig einzutragen.
+const PERSOENLICHE_SPORT_TAGE = [5, 6]; // Freitag, Samstag
+
 // --- Standort für die Wetter-Abfrage ---
 // Aktuell grob auf Kirchberg SG gesetzt. Falls das nicht stimmt,
 // hier die echten Koordinaten eintragen (z. B. von Google Maps

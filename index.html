@@ -53,10 +53,20 @@
     letter-spacing: -0.01em;
   }
 
+  .header { padding-bottom: 40px; }
+
   .date {
     color: var(--text-dim);
     font-size: 13px;
-    margin-bottom: 44px;
+    margin-bottom: 6px;
+  }
+
+  .wecker-hinweis {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-mid);
   }
 
   .section {
@@ -271,6 +281,11 @@
     flex: 1;
     accent-color: var(--amber);
   }
+  .radar-credit {
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
 
   /* Scroll-Enthüllung: Sektionen starten dunkel und werden beim
      Reinscrollen hell, mit leichtem Hochgleiten */
@@ -303,8 +318,12 @@
 <body>
 <div class="wrap">
 
-  <div class="greeting" id="greeting">Guten Morgen</div>
-  <div class="date" id="today-date"></div>
+  <div class="header">
+    <div class="greeting" id="greeting">Guten Morgen</div>
+    <div class="date" id="today-date"></div>
+    <div class="wecker-hinweis" id="wecker-hinweis" style="display:none;"></div>
+    <div class="wecker-hinweis" id="sport-hinweis" style="display:none; margin-top:4px;"></div>
+  </div>
 
   <!-- Merkzettel: klicken zum Bearbeiten, Überschrift zeigt den Inhalt -->
   <div class="section" id="section-notiz">

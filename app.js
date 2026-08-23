@@ -7,8 +7,10 @@ const WOCHENTAGE = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "
 
 function init() {
   setGreetingAndDate();
-  loadNotiz();
   const phase = getTagesPhase();
+  updateWeckerHinweis();
+  updateSportHinweis(phase);
+  loadNotiz();
   applyTimeOfDayLayout(phase);
   loadWeather();
   handleBusSection(phase);
@@ -17,6 +19,56 @@ function init() {
   loadExams();
   loadNews();
   setupScrollReveal();
+  updateFavicon();
+  setInterval(updateFavicon, 5 * 60 * 1000); // alle 5 Min. neu zeichnen
+}
+
+// --- Easter Egg: Der Punkt auf dem Tabbogen-Icon wandert mit der Uhrzeit ---
+function updateFavicon() {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, size, size);
+
+  const margin = size * 0.18;
+  const x0 = margin, y0 = margin * 0.7, x1 = size - margin, y1 = size - margin * 0.3;
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
+  const startDeg = 200, endDeg = 340;
+
+  ctx.strokeStyle = "#8a8a8a";
+  ctx.lineWidth = Math.max(1, size * 0.022);
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx, ry, 0, (startDeg * Math.PI) / 180, (endDeg * Math.PI) / 180);
+  ctx.stroke();
+
+  // Position des Punkts anhand der aktuellen Uhrzeit (06:00 bis 22:00 = ganzer Bogen)
+  const now = new Date();
+  const stunden = now.getHours() + now.getMinutes() / 60;
+  const tagStart = 6, tagEnde = 22;
+  let anteil = (stunden - tagStart) / (tagEnde - tagStart);
+  anteil = Math.max(0, Math.min(1, anteil));
+  const winkelRad = ((startDeg + (endDeg - startDeg) * anteil) * Math.PI) / 180;
+  const px = cx + rx * Math.cos(winkelRad);
+  const py = cy + ry * Math.sin(winkelRad);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(px, py, size * 0.05, 0, Math.PI * 2);
+  ctx.fill();
+
+  let link = document.querySelector("link[rel='icon']");
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.type = "image/png";
+  link.href = canvas.toDataURL("image/png");
 }
 
 // --- Sektionen beim Reinscrollen von dunkel zu hell einblenden ---
@@ -212,7 +264,7 @@ function setGreetingAndDate() {
   let greeting = "Guten Morgen";
   if (hour >= 12 && hour < 18) greeting = "Guten Tag";
   else if (hour >= 18) greeting = "Guten Abend";
-  document.getElementById("greeting").textContent = greeting;
+  document.getElementById("greeting").textContent = `${greeting} ${USER_NAME}`;
 
   const dateStr = now.toLocaleDateString("de-CH", { weekday: "long", day: "numeric", month: "long" });
   document.getElementById("today-date").textContent = dateStr;
@@ -245,6 +297,7 @@ async function loadWeather() {
           <span class="radar-time" id="radar-time">–</span>
           <input type="range" class="radar-slider" id="radar-slider" min="0" max="0" value="0">
         </div>
+        <div class="radar-credit">Karte: OpenStreetMap, CARTO · Regen: RainViewer</div>
       </div>`;
 
     const hint = el.querySelector(".toggle-hint");
@@ -309,7 +362,13 @@ async function initRadarMap() {
     }
 
     const map = L.map("radar-map", { zoomControl: false, attributionControl: false })
-      .setView([WEATHER_LOCATION.lat, WEATHER_LOCATION.lon], 8);
+      .setView([WEATHER_LOCATION.lat, WEATHER_LOCATION.lon], 9);
+
+    // Dunkle Kartenunterlage mit Ortsnamen/Grenzen zur Orientierung
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      maxZoom: 12,
+      attribution: "© OpenStreetMap, © CARTO",
+    }).addTo(map);
 
     // Eigene "Pane" für den Radar-Layer, damit wir per CSS-Filter aus den
     // Farben ein Schwarz-Weiss-Bild machen: Grauwerte + Invertierung.
@@ -325,7 +384,7 @@ async function initRadarMap() {
       const frame = frames[index];
       const url = `${daten.host}${frame.path}/${tileSize}/{z}/{x}/{y}/2/1_1.png`;
       if (!radarLayer) {
-        radarLayer = L.tileLayer(url, { opacity: 1, pane: "radarPane" }).addTo(map);
+        radarLayer = L.tileLayer(url, { opacity: 0.85, pane: "radarPane" }).addTo(map);
       } else {
         radarLayer.setUrl(url);
       }
@@ -601,6 +660,83 @@ async function loadBusHeimweg() {
   }
 }
 
+// --- Wecker-Hinweis: erscheint ab dem Abend, 55 Min. vor dem morgigen Bus ---
+function updateWeckerHinweis() {
+  const el = document.getElementById("wecker-hinweis");
+  const now = new Date();
+
+  if (now.getHours() < ABEND_STUNDE) {
+    el.style.display = "none";
+    return;
+  }
+
+  const morgen = new Date();
+  morgen.setDate(morgen.getDate() + 1);
+  const busZeit = ETAPPE1_FAHRPLAN[morgen.getDay()];
+
+  if (!busZeit) {
+    el.style.display = "none"; // morgen kein fixer Bus (z. B. Wochenende)
+    return;
+  }
+
+  const [h, m] = busZeit.split(":").map(Number);
+  const abfahrt = new Date();
+  abfahrt.setHours(h, m, 0, 0);
+  const weckzeit = new Date(abfahrt.getTime() - WECKER_VORLAUF_MIN * 60000);
+  const weckzeitStr = weckzeit.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+
+  el.style.display = "flex";
+  el.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="13" r="8"></circle>
+      <path d="M12 9v4l3 2"></path>
+      <path d="M5 3l-2 2"></path>
+      <path d="M19 3l2 2"></path>
+    </svg>
+    ${weckzeitStr}`;
+}
+
+// --- Erkennt Schulsport (aus Stundenplan) und persönlichen Sport getrennt ---
+function istSchulsporttag(weekday) {
+  return STUNDENPLAN.some(l => l.weekday === weekday && l.subject.toUpperCase().includes("SPO"));
+}
+function istPersoenlicherSporttag(weekday) {
+  return PERSOENLICHE_SPORT_TAGE.includes(weekday);
+}
+
+// --- Sport-Hinweis: Symbol ohne Text ---
+// - Schulsport (Mo/Do laut Stundenplan): nur bis Unterrichtsbeginn, danach
+//   ist das Zeug ja eh schon eingepackt
+// - Persönlicher Sport (z. B. Fitness Fr/Sa): den ganzen Tag über
+// - Am Vorabend (ab 17 Uhr), wenn der nächste Tag ein Sporttag ist
+function updateSportHinweis(phase) {
+  const el = document.getElementById("sport-hinweis");
+  const now = new Date();
+  const heute = now.getDay();
+  const morgen = (heute + 1) % 7;
+  const istAbend = now.getHours() >= 17;
+
+  let zeigen = false;
+  if (istPersoenlicherSporttag(heute)) zeigen = true;
+  if (istSchulsporttag(heute) && phase === "vor") zeigen = true;
+  if (istAbend && (istPersoenlicherSporttag(morgen) || istSchulsporttag(morgen))) zeigen = true;
+
+  if (!zeigen) {
+    el.style.display = "none";
+    return;
+  }
+
+  el.style.display = "flex";
+  el.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 8v8"></path>
+      <path d="M18 8v8"></path>
+      <path d="M3 10v4"></path>
+      <path d="M21 10v4"></path>
+      <path d="M6 12h12"></path>
+    </svg>`;
+}
+
 // --- Stundenplan ---
 function loadLessons(wochenende) {
   if (wochenende) return; // Sektion ist ausgeblendet, nichts zu tun
@@ -685,13 +821,15 @@ const NEWS_FEEDS = [
 ];
 const NEWS_CACHE_KEY = "dayguide_news_cache";
 
-// Fussball wird immer aus den Neuigkeiten rausgefiltert. Erkennung läuft
-// über den URL-Pfad (z. B. srf.ch/sport/fussball/...), das ist deutlich
-// zuverlässiger als nach Stichworten im Titel zu suchen.
-const FUSSBALL_PFADE = ["/sport/fussball/", "/sport/frauen-fussball/"];
+// Bei den Sport-Meldungen interessieren dich nur diese Kategorien (Whitelist).
+// Alles andere Sportliche (Fussball, Reiten, Golf, Rudern, ...) wird raus-
+// gefiltert. Normale News (nicht unter /sport/) sind davon nicht betroffen.
+const SPORT_INTERESSEN_PFADE = ["/sport/motorsport/", "/sport/mehr-sport/rad/"];
 
-function istUnerwuenschterFussball(item) {
-  return FUSSBALL_PFADE.some(p => item.link.includes(p));
+function istErwuenschteMeldung(item) {
+  const istSportKategorie = item.link.includes("/sport/");
+  if (!istSportKategorie) return true; // normale News immer erlaubt
+  return SPORT_INTERESSEN_PFADE.some(p => item.link.includes(p));
 }
 
 function getNewsSlot() {
@@ -739,7 +877,7 @@ async function loadNews() {
       }
     }
 
-    const gefiltert = alle.filter(i => !istUnerwuenschterFussball(i));
+    const gefiltert = alle.filter(istErwuenschteMeldung);
     gefiltert.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
     const top = gefiltert.slice(0, 3); // maximal 3, kann auch weniger sein
 
