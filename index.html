@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -172,6 +173,25 @@
     font-size: 14px;
   }
 
+  /* Neuigkeiten */
+  .news-row {
+    display: block;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+    text-decoration: none;
+    color: inherit;
+  }
+  .news-row:last-child { border-bottom: none; }
+  .news-title { display: block; font-size: 14px; color: var(--text); line-height: 1.4; }
+  .news-source {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
   /* Kompakte Darstellung für Sektionen, die gerade weniger wichtig sind */
   .section.compact { padding: 14px 0; }
   .section.compact .section-label { font-size: 10px; margin-bottom: 8px; }
@@ -217,6 +237,12 @@
   <div class="section" id="section-exams">
     <div class="section-label">Nächste Prüfungen</div>
     <div id="exams-content" class="empty">–</div>
+  </div>
+
+  <!-- Neuigkeiten -->
+  <div class="section" id="section-news">
+    <div class="section-label">Neuigkeiten</div>
+    <div id="news-content" class="empty">Lädt…</div>
   </div>
 
 </div>
