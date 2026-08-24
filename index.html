@@ -333,21 +333,27 @@
     padding: 8px;
   }
 
-  /* Scroll-Enthüllung: Sektionen starten dunkel und werden beim
-     Reinscrollen hell, mit leichtem Hochgleiten */
-  .reveal {
-    opacity: 0;
-    transform: translateY(16px);
-    filter: brightness(0.3);
-    transition: opacity 0.8s ease, transform 0.8s ease, filter 0.8s ease;
+  .menu-list-item {
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    background: #141414;
+    border-radius: 14px;
+    font-size: 15px;
+    cursor: pointer;
   }
-  .reveal.visible {
-    opacity: 1;
-    transform: translateY(0);
-    filter: brightness(1);
+  .menu-list-item:active { background: #1e1e1e; }
+
+  .menu-back {
+    font-size: 14px;
+    color: var(--text-mid);
+    cursor: pointer;
+    margin-bottom: 20px;
   }
+
+  /* Scroll-Enthüllung: Helligkeit/Position werden direkt per JS anhand
+     der Scroll-Position gesetzt (siehe setupScrollReveal in app.js) */
   @media (prefers-reduced-motion: reduce) {
-    .reveal { opacity: 1; transform: none; filter: none; transition: none; }
+    .section { opacity: 1 !important; transform: none !important; filter: none !important; }
   }
 
   /* Kompakte Darstellung für Sektionen, die gerade weniger wichtig sind */
@@ -369,8 +375,37 @@
   <div class="menu-overlay" id="menu-overlay">
     <div class="menu-panel">
       <div class="menu-close" id="menu-close">✕</div>
-      <div class="section-label">Morgiger Stundenplan</div>
-      <div id="morgen-stundenplan-content" class="empty">–</div>
+
+      <div id="menu-list">
+        <div class="menu-list-item" data-view="stundenplan">Morgiger Stundenplan</div>
+        <div class="menu-list-item" data-view="wochenplan">Wochenplan</div>
+        <div class="menu-list-item" data-view="kalender">Kalender</div>
+        <div class="menu-list-item" data-view="einstellungen">Einstellungen</div>
+      </div>
+
+      <div id="menu-detail" style="display:none;">
+        <div class="menu-back" id="menu-back">‹ Zurück</div>
+
+        <div id="detail-stundenplan" style="display:none;">
+          <div class="section-label">Morgiger Stundenplan</div>
+          <div id="morgen-stundenplan-content" class="empty">–</div>
+        </div>
+
+        <div id="detail-wochenplan" style="display:none;">
+          <div class="section-label">Wochenplan</div>
+          <div class="empty">Kommt bald.</div>
+        </div>
+
+        <div id="detail-kalender" style="display:none;">
+          <div class="section-label">Kalender</div>
+          <div class="empty">Kommt bald.</div>
+        </div>
+
+        <div id="detail-einstellungen" style="display:none;">
+          <div class="section-label">Einstellungen</div>
+          <div class="empty">Kommt bald.</div>
+        </div>
+      </div>
     </div>
   </div>
 

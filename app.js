@@ -72,22 +72,39 @@ function updateFavicon() {
   link.href = canvas.toDataURL("image/png");
 }
 
-// --- Sektionen beim Reinscrollen von dunkel zu hell einblenden ---
+// --- Sektionen beim Scrollen kontinuierlich von dunkel zu hell einblenden ---
 function setupScrollReveal() {
+  const reduzierteBewegung = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const sections = document.querySelectorAll(".section");
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add("visible");
-        observer.unobserve(entry.target); // nur einmal pro Sektion
-      }
-    });
-  }, { threshold: 0, rootMargin: "0px 0px -25% 0px" });
+  if (reduzierteBewegung) return; // Bewegung deaktiviert -> alles normal sichtbar lassen
 
-  sections.forEach(sec => {
-    sec.classList.add("reveal");
-    observer.observe(sec);
-  });
+  function update() {
+    const vh = window.innerHeight;
+    const zoneStart = vh;        // ganz unten am Bildschirmrand: noch dunkel
+    const zoneEnde = vh * 0.55;  // etwa Bildschirmmitte: voll sichtbar
+
+    sections.forEach(sec => {
+      const rect = sec.getBoundingClientRect();
+      let fortschritt = (zoneStart - rect.top) / (zoneStart - zoneEnde);
+      fortschritt = Math.max(0, Math.min(1, fortschritt));
+      sec.style.opacity = fortschritt;
+      sec.style.filter = `brightness(${0.25 + 0.75 * fortschritt})`;
+      sec.style.transform = `translateY(${(1 - fortschritt) * 16}px)`;
+    });
+  }
+
+  let ticking = false;
+  window.addEventListener("scroll", () => {
+    if (!ticking) {
+      requestAnimationFrame(() => {
+        update();
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
+
+  update();
 }
 
 // --- Merkzettel: ein Feld, Überschrift zeigt den Inhalt oder "Notes" ---
@@ -155,7 +172,11 @@ function getTagesPhase() {
   const heimwegSchwelle = new Date(letztesEnde.getTime() - HEIMWEG_VORLAUF_MIN * 60000);
 
   if (now < ersterStart) return "vor";
-  if (now >= heimwegSchwelle) return "heimweg";
+  if (now >= heimwegSchwelle) {
+    const heimwegEndeMs = letztesEnde.getTime() + HEIMWEG_FENSTER_MIN * 60000;
+    if (now.getTime() > heimwegEndeMs) return "abend"; // vermutlich längst zuhause
+    return "heimweg";
+  }
   return "unterricht";
 }
 
@@ -173,7 +194,7 @@ function handleBusSection(phase) {
     label.innerHTML = `Heimweg <span class="live-dot"></span>`;
     loadBusHeimweg();
   } else {
-    // wochenende oder unterricht: Bus-Bereich ausblenden
+    // wochenende, unterricht oder abend (Heimweg-Fenster vorbei): Bus ausblenden
     bus.style.display = "none";
   }
 }
@@ -250,11 +271,16 @@ function applyTimeOfDayLayout(phase) {
     return;
   }
 
-  // Phase "vor" oder "keineLektionen"
+  // Phase "vor", "keineLektionen" oder "abend" (Heimweg-Fenster vorbei)
   const hour = new Date().getHours();
   const istMorgen = hour < 13;
 
-  if (istMorgen) {
+  if (phase === "abend") {
+    bus.style.display = "none";
+    lessons.style.display = "none";
+  }
+
+  if (istMorgen && phase !== "abend") {
     wrap.append(wetter, bus, lessons, exams, news);
     wetter.classList.remove("compact");
     bus.classList.remove("compact");
@@ -653,7 +679,7 @@ async function loadBusHeimweg() {
 
       slot.outerHTML = `
         <div class="board-row">
-          <span class="board-route">${naechste.category}${naechste.number} → ${naechste.to}</span>
+          <span class="board-route">Kanti → Wil Bahnhof</span>
           <span class="board-time">${abfahrtPlan.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
             ${verspaetung > 0 ? `<span class="board-delay">+${verspaetung}′</span>` : ""}
           </span>
@@ -698,11 +724,13 @@ async function loadBusHeimweg() {
 
     const abfahrtPlan = new Date(passende.stop.departure);
     const verspaetung = passende.stop.delay || 0;
+    const ankunft = new Date(abfahrtPlan.getTime() + REISEZEIT_ETAPPE1_MIN * 60000);
+    const ankunftStr = ankunft.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
 
     slot.outerHTML = `
       <div class="board-row">
-        <span class="board-route">${passende.category}${passende.number} → ${passende.to}</span>
-        <span class="board-time">${abfahrtPlan.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
+        <span class="board-route">Wil Bahnhof → Kirchberg Post</span>
+        <span class="board-time">${abfahrtPlan.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })} → ${ankunftStr}
           ${verspaetung > 0 ? `<span class="board-delay">+${verspaetung}′</span>` : ""}
         </span>
       </div>`;
@@ -983,14 +1011,34 @@ function setupMenu() {
   const btn = document.getElementById("menu-btn");
   const overlay = document.getElementById("menu-overlay");
   const closeBtn = document.getElementById("menu-close");
+  const list = document.getElementById("menu-list");
+  const detail = document.getElementById("menu-detail");
+  const backBtn = document.getElementById("menu-back");
+
+  function zeigeListe() {
+    list.style.display = "block";
+    detail.style.display = "none";
+  }
 
   btn.addEventListener("click", () => {
-    renderMorgenStundenplan();
+    zeigeListe();
     overlay.classList.add("open");
   });
   closeBtn.addEventListener("click", () => overlay.classList.remove("open"));
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) overlay.classList.remove("open");
+  });
+  backBtn.addEventListener("click", zeigeListe);
+
+  document.querySelectorAll(".menu-list-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const view = item.dataset.view;
+      list.style.display = "none";
+      detail.style.display = "block";
+      document.querySelectorAll("#menu-detail > div[id^='detail-']").forEach(d => d.style.display = "none");
+      document.getElementById(`detail-${view}`).style.display = "block";
+      if (view === "stundenplan") renderMorgenStundenplan();
+    });
   });
 }
 
