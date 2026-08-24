@@ -19,6 +19,7 @@ function init() {
   loadExams();
   loadNews();
   setupScrollReveal();
+  setupMenu();
   updateFavicon();
   setInterval(updateFavicon, 5 * 60 * 1000); // alle 5 Min. neu zeichnen
 }
@@ -81,7 +82,7 @@ function setupScrollReveal() {
         observer.unobserve(entry.target); // nur einmal pro Sektion
       }
     });
-  }, { threshold: 0.15 });
+  }, { threshold: 0, rootMargin: "0px 0px -25% 0px" });
 
   sections.forEach(sec => {
     sec.classList.add("reveal");
@@ -210,46 +211,57 @@ function applyTimeOfDayLayout(phase) {
   const lessons = document.getElementById("section-lessons");
   const exams = document.getElementById("section-exams");
   const nextlesson = document.getElementById("section-nextlesson");
+  const news = document.getElementById("section-news");
   const wrap = wetter.parentElement;
 
+  // Grundzustand, wird unten je nach Phase wieder angepasst
+  nextlesson.style.display = "none";
+  lessons.style.display = "";
+  bus.style.display = "";
+
   if (phase === "wochenende") {
-    // Am Wochenende: Bus, Stundenplan und Nächste-Stunde komplett ausblenden
     bus.style.display = "none";
     lessons.style.display = "none";
-    nextlesson.style.display = "none";
-    wrap.append(wetter, exams);
+    wrap.append(wetter, exams, news);
     wetter.classList.remove("compact");
     exams.classList.remove("compact");
     return;
   }
 
-  bus.style.display = phase === "unterricht" ? "none" : "";
-  lessons.style.display = "";
-
   if (phase === "unterricht") {
     // Während des Unterrichts: Nächste Stunde ganz oben, Stundenplan normal,
-    // Wetter und Prüfungen kompakt nach hinten
-    wrap.append(nextlesson, lessons, wetter, exams);
+    // Wetter und Prüfungen kompakt nach hinten, Bus ausgeblendet
+    bus.style.display = "none";
+    nextlesson.style.display = "";
+    wrap.append(nextlesson, lessons, wetter, exams, news);
     lessons.classList.remove("compact");
     wetter.classList.add("compact");
     exams.classList.add("compact");
     return;
   }
 
-  nextlesson.style.display = "none";
+  if (phase === "heimweg") {
+    // Schule ist vorbei: Heimweg zuoberst, Stundenplan wird nicht mehr gebraucht
+    lessons.style.display = "none";
+    wrap.append(bus, wetter, exams, news);
+    bus.classList.remove("compact");
+    wetter.classList.add("compact");
+    exams.classList.add("compact");
+    return;
+  }
+
+  // Phase "vor" oder "keineLektionen"
   const hour = new Date().getHours();
-  const istMorgen = hour < 13; // vor Schule / früh am Tag
+  const istMorgen = hour < 13;
 
   if (istMorgen) {
-    // Reihenfolge: Wetter, Bus, dann kompakt Stundenplan, Prüfungen
-    wrap.append(wetter, bus, lessons, exams);
+    wrap.append(wetter, bus, lessons, exams, news);
     wetter.classList.remove("compact");
     bus.classList.remove("compact");
     lessons.classList.add("compact");
     exams.classList.add("compact");
   } else {
-    // Reihenfolge: Stundenplan, Prüfungen zuerst, dann kompakt Wetter, Bus
-    wrap.append(lessons, exams, wetter, bus);
+    wrap.append(lessons, exams, wetter, bus, news);
     lessons.classList.remove("compact");
     exams.classList.remove("compact");
     wetter.classList.add("compact");
@@ -262,7 +274,8 @@ function setGreetingAndDate() {
   const now = new Date();
   const hour = now.getHours();
   let greeting = "Guten Morgen";
-  if (hour >= 12 && hour < 18) greeting = "Guten Tag";
+  if (hour >= 11 && hour < 13) greeting = "Guten Appetit";
+  else if (hour >= 13 && hour < 18) greeting = "Guten Tag";
   else if (hour >= 18) greeting = "Guten Abend";
   document.getElementById("greeting").textContent = `${greeting} ${USER_NAME}`;
 
@@ -273,6 +286,7 @@ function setGreetingAndDate() {
 // --- Wetter (Open-Meteo, kein API-Key nötig) ---
 async function loadWeather() {
   const el = document.getElementById("weather-content");
+  const label = document.getElementById("weather-label");
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LOCATION.lat}&longitude=${WEATHER_LOCATION.lon}&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FZurich&forecast_days=8`;
     const res = await fetch(url);
@@ -281,9 +295,16 @@ async function loadWeather() {
     const desc = weatherCodeToText(data.current.weather_code);
     const naechsteStunde = getNaechsteStundeText(data);
 
-    el.className = "";
-    el.innerHTML = `
-      <div class="weather-row toggle-row">
+    // Erstes Mal in diesem Zeitfenster (morgen/mittag) -> offen,
+    // danach komplett reduziert auf das Wort "Wetter"
+    const aktuellerSlot = getNewsSlot();
+    const heute = heuteStr();
+    const gesehenKey = `dayguide_wetter_gesehen_${heute}_${aktuellerSlot}`;
+    let offen = !localStorage.getItem(gesehenKey);
+    localStorage.setItem(gesehenKey, "1");
+
+    const vollHtml = `
+      <div class="weather-row">
         <span class="weather-temp">${temp}°</span>
         <span class="weather-desc">${desc} · ${WEATHER_LOCATION.name}</span>
       </div>
@@ -300,40 +321,59 @@ async function loadWeather() {
         <div class="radar-credit">Karte: OpenStreetMap, CARTO · Regen: RainViewer</div>
       </div>`;
 
-    const hint = el.querySelector(".toggle-hint");
-    const panel = el.querySelector(".expanded");
-    hint.addEventListener("click", () => {
-      const geoeffnet = panel.style.display !== "none";
-      if (geoeffnet) {
-        panel.style.display = "none";
-        hint.textContent = "Mehr Prognose";
-      } else {
-        if (!panel.dataset.gefuellt) {
-          panel.innerHTML = buildWeatherForecastHtml(data);
-          panel.dataset.gefuellt = "1";
-        }
-        panel.style.display = "block";
-        hint.textContent = "Weniger anzeigen";
-      }
-    });
+    function render() {
+      el.className = "";
+      el.innerHTML = offen ? vollHtml : "";
+      if (offen) wireWeatherToggles(data);
+    }
+    render();
 
-    const radarHint = document.getElementById("radar-toggle");
-    const radarContainer = document.getElementById("radar-container");
-    radarHint.addEventListener("click", () => {
-      const geoeffnet = radarContainer.style.display !== "none";
-      if (geoeffnet) {
-        radarContainer.style.display = "none";
-        radarHint.textContent = "Regenradar";
-      } else {
-        radarContainer.style.display = "block";
-        radarHint.textContent = "Regenradar ausblenden";
-        initRadarMap();
-      }
+    label.classList.add("clickable");
+    label.addEventListener("click", () => {
+      offen = !offen;
+      render();
     });
   } catch (err) {
     el.className = "error";
     el.innerHTML = `Wetter konnte nicht geladen werden. <span class="retry-link" onclick="loadWeather()">Nochmal versuchen</span>`;
   }
+}
+
+// --- Verknüpft die Klick-Bereiche innerhalb der Wetter-Vollansicht ---
+function wireWeatherToggles(data) {
+  const el = document.getElementById("weather-content");
+  const hint = el.querySelector(".toggle-hint");
+  const panel = el.querySelector(".expanded");
+  hint.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const geoeffnet = panel.style.display !== "none";
+    if (geoeffnet) {
+      panel.style.display = "none";
+      hint.textContent = "Mehr Prognose";
+    } else {
+      if (!panel.dataset.gefuellt) {
+        panel.innerHTML = buildWeatherForecastHtml(data);
+        panel.dataset.gefuellt = "1";
+      }
+      panel.style.display = "block";
+      hint.textContent = "Weniger anzeigen";
+    }
+  });
+
+  const radarHint = document.getElementById("radar-toggle");
+  const radarContainer = document.getElementById("radar-container");
+  radarHint.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const geoeffnet = radarContainer.style.display !== "none";
+    if (geoeffnet) {
+      radarContainer.style.display = "none";
+      radarHint.textContent = "Regenradar";
+    } else {
+      radarContainer.style.display = "block";
+      radarHint.textContent = "Regenradar ausblenden";
+      initRadarMap();
+    }
+  });
 }
 
 function getNaechsteStundeText(data) {
@@ -362,7 +402,7 @@ async function initRadarMap() {
     }
 
     const map = L.map("radar-map", { zoomControl: false, attributionControl: false })
-      .setView([WEATHER_LOCATION.lat, WEATHER_LOCATION.lon], 9);
+      .setView([WEATHER_LOCATION.lat, WEATHER_LOCATION.lon], 7);
 
     // Dunkle Kartenunterlage mit Ortsnamen/Grenzen zur Orientierung
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
@@ -384,7 +424,10 @@ async function initRadarMap() {
       const frame = frames[index];
       const url = `${daten.host}${frame.path}/${tileSize}/{z}/{x}/{y}/2/1_1.png`;
       if (!radarLayer) {
-        radarLayer = L.tileLayer(url, { opacity: 0.85, pane: "radarPane" }).addTo(map);
+        // maxNativeZoom: RainViewer liefert Kacheln nur bis Stufe 7. Zoomt
+        // man weiter rein, vergrössert Leaflet automatisch die letzte
+        // verfügbare Kachel, statt eine "nicht unterstützt"-Meldung zu holen.
+        radarLayer = L.tileLayer(url, { opacity: 0.85, pane: "radarPane", maxNativeZoom: 7, maxZoom: 12 }).addTo(map);
       } else {
         radarLayer.setUrl(url);
       }
@@ -463,10 +506,22 @@ async function loadBusHinweg() {
   // Etappe 1: feste Zeit aus data.js
   const zeit1 = ETAPPE1_FAHRPLAN[weekday];
   if (zeit1) {
+    const [h1, m1] = zeit1.split(":").map(Number);
+    const abfahrt1 = new Date();
+    abfahrt1.setHours(h1, m1, 0, 0);
+    const ankunft1 = new Date(abfahrt1.getTime() + REISEZEIT_ETAPPE1_MIN * 60000);
+    const ankunft1Str = ankunft1.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+    const losfahren = new Date(abfahrt1.getTime() - ZEIT_ZUHAUSE_HALTESTELLE_MIN * 60000);
+    const losfahrenStr = losfahren.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+
     html += `
       <div class="board-row">
         <span class="board-route">Kirchberg Post → Wil Bahnhof</span>
-        <span class="board-time">${zeit1}</span>
+        <span class="board-time">${zeit1} → ${ankunft1Str}</span>
+      </div>
+      <div class="board-row">
+        <span class="board-route">Losfahren spätestens</span>
+        <span class="board-time">${losfahrenStr}</span>
       </div>`;
   } else {
     html += `<div class="board-row"><span class="board-route">Heute kein fixer Bus eingetragen</span></div>`;
@@ -892,6 +947,8 @@ async function loadNews() {
 
 function renderNews(items, erstesMal) {
   const el = document.getElementById("news-content");
+  const label = document.getElementById("news-label");
+
   if (!items || items.length === 0) {
     el.className = "empty";
     el.textContent = "Keine Neuigkeiten verfügbar.";
@@ -904,27 +961,56 @@ function renderNews(items, erstesMal) {
       <span class="news-source">${i.quelle}</span>
     </a>`).join("");
 
-  el.className = "";
+  let offen = erstesMal;
 
-  if (erstesMal) {
-    // Erstes Mal in diesem Zeitfenster: volle Liste direkt zeigen
-    el.innerHTML = listHtml;
-    return;
+  function render() {
+    el.className = "";
+    el.innerHTML = offen ? listHtml : "";
   }
+  render();
 
-  // Schon gesehen: kompakt, per Klick aufklappbar
-  const anzahlText = `${items.length} Meldung${items.length === 1 ? "" : "en"} anzeigen`;
-  el.innerHTML = `
-    <div class="toggle-hint" id="news-toggle">${anzahlText}</div>
-    <div class="expanded" style="display:none;">${listHtml}</div>`;
-
-  const hint = document.getElementById("news-toggle");
-  const panel = hint.nextElementSibling;
-  hint.addEventListener("click", () => {
-    const geoeffnet = panel.style.display !== "none";
-    panel.style.display = geoeffnet ? "none" : "block";
-    hint.textContent = geoeffnet ? anzahlText : "Weniger anzeigen";
+  label.classList.add("clickable");
+  label.addEventListener("click", () => {
+    offen = !offen;
+    render();
   });
 }
 
 init();
+
+// --- Menü: Button öffnet Overlay mit morgigem Stundenplan ---
+function setupMenu() {
+  const btn = document.getElementById("menu-btn");
+  const overlay = document.getElementById("menu-overlay");
+  const closeBtn = document.getElementById("menu-close");
+
+  btn.addEventListener("click", () => {
+    renderMorgenStundenplan();
+    overlay.classList.add("open");
+  });
+  closeBtn.addEventListener("click", () => overlay.classList.remove("open"));
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.classList.remove("open");
+  });
+}
+
+function renderMorgenStundenplan() {
+  const el = document.getElementById("morgen-stundenplan-content");
+  const morgenWeekday = (new Date().getDay() + 1) % 7;
+  const lektionen = STUNDENPLAN
+    .filter(l => l.weekday === morgenWeekday)
+    .sort((a, b) => a.time.localeCompare(b.time));
+
+  if (lektionen.length === 0) {
+    el.className = "empty";
+    el.textContent = "Keine Schule morgen.";
+    return;
+  }
+
+  el.className = "";
+  el.innerHTML = lektionen.map(l => `
+    <div class="lesson-row">
+      <span class="lesson-time">${l.time}</span>
+      <span>${l.subject}${l.room ? " · " + l.room : ""}</span>
+    </div>`).join("");
+}

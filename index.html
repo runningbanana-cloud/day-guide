@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Day Guide</title>
+<title>Arcday</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icon-192.png">
 <meta name="theme-color" content="#000000">
@@ -38,7 +38,7 @@
     font-weight: 400;
     font-variant-numeric: tabular-nums;
     min-height: 100vh;
-    padding: 48px 22px 70px;
+    padding: max(48px, calc(env(safe-area-inset-top) + 28px)) 22px 70px;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -86,6 +86,8 @@
     align-items: center;
     gap: 6px;
   }
+
+  .section-label.clickable { cursor: pointer; }
 
   .live-dot {
     width: 5px;
@@ -287,6 +289,50 @@
     color: var(--text-dim);
   }
 
+  /* Menü */
+  .menu-btn {
+    position: fixed;
+    top: max(20px, env(safe-area-inset-top));
+    right: 20px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 8px;
+    z-index: 100;
+  }
+
+  .menu-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    z-index: 200;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 80px 22px;
+    overflow-y: auto;
+  }
+  .menu-overlay.open { display: flex; }
+
+  .menu-panel {
+    width: 100%;
+    max-width: 440px;
+    position: relative;
+  }
+
+  .menu-close {
+    position: absolute;
+    top: -50px;
+    right: 0;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--text);
+    padding: 8px;
+  }
+
   /* Scroll-Enthüllung: Sektionen starten dunkel und werden beim
      Reinscrollen hell, mit leichtem Hochgleiten */
   .reveal {
@@ -318,6 +364,16 @@
 <body>
 <div class="wrap">
 
+  <button class="menu-btn" id="menu-btn" aria-label="Menü">☰</button>
+
+  <div class="menu-overlay" id="menu-overlay">
+    <div class="menu-panel">
+      <div class="menu-close" id="menu-close">✕</div>
+      <div class="section-label">Morgiger Stundenplan</div>
+      <div id="morgen-stundenplan-content" class="empty">–</div>
+    </div>
+  </div>
+
   <div class="header">
     <div class="greeting" id="greeting">Guten Morgen</div>
     <div class="date" id="today-date"></div>
@@ -339,7 +395,7 @@
 
   <!-- Wetter -->
   <div class="section" id="section-weather">
-    <div class="section-label">Wetter <span class="live-dot"></span></div>
+    <div class="section-label" id="weather-label">Wetter <span class="live-dot"></span></div>
     <div id="weather-content" class="empty">Lädt…</div>
   </div>
 
@@ -363,7 +419,7 @@
 
   <!-- Neuigkeiten -->
   <div class="section" id="section-news">
-    <div class="section-label">Neuigkeiten</div>
+    <div class="section-label" id="news-label">Neuigkeiten</div>
     <div id="news-content" class="empty">Lädt…</div>
   </div>
 

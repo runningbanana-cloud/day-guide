@@ -42,8 +42,13 @@ const ETAPPE1_FAHRPLAN = {
   5: "06:45", // Freitag
 };
 
-// Gehzeit von Zuhause zur Haltestelle Kirchberg Post, in Minuten.
-const GEHZEIT_ZUHAUSE_HALTESTELLE = 10;
+// Zeit von Zuhause zur Haltestelle Kirchberg Post, in Minuten.
+// Aktuell mit dem E-Scooter unterwegs (vorher 10 Min. zu Fuss).
+const ZEIT_ZUHAUSE_HALTESTELLE_MIN = 5;
+
+// Fahrzeit Kirchberg Post -> Wil Bahnhof in Minuten, für die Ankunfts-
+// Anzeige. Geschätzt, bitte bei Gelegenheit mit echtem Fahrplan prüfen.
+const REISEZEIT_ETAPPE1_MIN = 12;
 
 // --- Etappe 2: Wil Bahnhof -> Kanti (live per API) ---
 // Name der Starthaltestelle, wie sie transport.opendata.ch kennt.

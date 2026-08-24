@@ -1,6 +1,6 @@
 {
-  "name": "Day Guide",
-  "short_name": "Day Guide",
+  "name": "Arcday",
+  "short_name": "Arcday",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#000000",
