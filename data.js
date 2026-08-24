@@ -24,10 +24,27 @@ const HEIMWEG_FENSTER_MIN = 90;
 // im Stundenplan) wird automatisch erkannt, hier nicht nötig einzutragen.
 const PERSOENLICHE_SPORT_TAGE = [5, 6]; // Freitag, Samstag
 
-// --- Standort für die Wetter-Abfrage ---
+// --- Morgenroutine (wird vor Schulbeginn angezeigt, abhakbar) ---
+const MORGENROUTINE = ["Gesicht waschen & Haare nass machen", "Proteinshake trinken", "Zähne putzen", "Anziehen", "Haare machen", "Toilette"];
+
+// --- Packliste (wird abends für morgen angezeigt) ---
+const PACKLISTE_SCHULE = ["Laptop & Ladekabel", "Overnight Oats + Besteck", "Mäppchen", "Bücher & Ordner", "Hausaufgaben"];
+const PACKLISTE_SPORT = ["Sportschuhe", "Sporthose", "Sport-T-Shirt"];
+
+// Ab welcher Uhrzeit (Dezimalstunden, z. B. 20.5 = 20:30) die Packliste
+// abends überhaupt erscheint.
+const PACKLISTE_AB_STUNDE = 20.5;
 // Aktuell grob auf Kirchberg SG gesetzt. Falls das nicht stimmt,
 // hier die echten Koordinaten eintragen (z. B. von Google Maps
 // per Rechtsklick auf deinen Wohnort kopieren).
+// --- Meal Prep (wird zusätzlich im Wochenplan angezeigt) ---
+// 0 = Sonntag ... 6 = Samstag
+const MEAL_PREP = {
+  3: "Meal Prep: Overnight Oats vorbereiten",
+  6: "Meal Prep vorbereiten",
+  0: "Meal Prep vorbereiten",
+};
+// --- Standort für die Wetter-Abfrage ---
 const WEATHER_LOCATION = {
   lat: 47.3833,
   lon: 9.2833,
@@ -47,8 +64,8 @@ const ETAPPE1_FAHRPLAN = {
 };
 
 // Zeit von Zuhause zur Haltestelle Kirchberg Post, in Minuten.
-// Aktuell mit dem E-Scooter unterwegs (vorher 10 Min. zu Fuss).
-const ZEIT_ZUHAUSE_HALTESTELLE_MIN = 5;
+// Mit dem E-Scooter unterwegs, inkl. Puffer zum Abschliessen.
+const ZEIT_ZUHAUSE_HALTESTELLE_MIN = 10;
 
 // Fahrzeit Kirchberg Post -> Wil Bahnhof in Minuten, für die Ankunfts-
 // Anzeige. Geschätzt, bitte bei Gelegenheit mit echtem Fahrplan prüfen.
@@ -63,6 +80,10 @@ const ETAPPE2_LINIE = "733";
 
 // Gehzeit vom Bahnhof Wil direkt zur Kanti, in Minuten.
 const GEHZEIT_BAHNHOF_KANTI = 10;
+
+// Wie lange du bereit bist, auf den Bus zu warten, bevor sich Laufen mehr
+// lohnt. Unabhängig davon, ob das schneller wäre als Laufen.
+const WARTETOLERANZ_MIN = 15;
 
 // --- Heimweg: Kanti -> Wil Bahnhof -> Kirchberg Post ---
 // ACHTUNG: Dieser Stationsname ist NICHT bestätigt, sondern geraten!

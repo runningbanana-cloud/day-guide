@@ -304,6 +304,16 @@
     z-index: 100;
   }
 
+  .sport-hinweis-ecke {
+    position: fixed;
+    top: max(20px, env(safe-area-inset-top));
+    right: 60px;
+    color: var(--text);
+    z-index: 100;
+    padding: 8px;
+  }
+  .sport-hinweis-ecke svg { width: 22px; height: 22px; }
+
   .menu-overlay {
     display: none;
     position: fixed;
@@ -350,6 +360,62 @@
     margin-bottom: 20px;
   }
 
+  .wochentag-label {
+    font-size: 12px;
+    color: var(--text-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 18px 0 6px;
+  }
+  .wochentag-label:first-child { margin-top: 0; }
+  .meal-prep-row { color: var(--amber); }
+
+  /* Checklisten (Morgenroutine, Packliste, Einstellungen) */
+  .checklist-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .checklist-row input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--text);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .checklist-row.done span { text-decoration: line-through; color: var(--text-dim); }
+
+  /* To-Do */
+  .todo-add-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .todo-add-row input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    padding: 6px 0;
+    outline: none;
+  }
+  #todo-add-btn {
+    font-size: 20px;
+    color: var(--text);
+    cursor: pointer;
+    padding: 0 6px;
+  }
+  .todo-row { justify-content: space-between; }
+  .todo-row span:first-of-type + span { flex: 1; margin-left: 0; }
+  .todo-delete { color: var(--text-dim); cursor: pointer; padding: 0 4px; }
+
   /* Scroll-Enthüllung: Helligkeit/Position werden direkt per JS anhand
      der Scroll-Position gesetzt (siehe setupScrollReveal in app.js) */
   @media (prefers-reduced-motion: reduce) {
@@ -379,6 +445,7 @@
       <div id="menu-list">
         <div class="menu-list-item" data-view="stundenplan">Morgiger Stundenplan</div>
         <div class="menu-list-item" data-view="wochenplan">Wochenplan</div>
+        <div class="menu-list-item" data-view="todo">To-Do</div>
         <div class="menu-list-item" data-view="kalender">Kalender</div>
         <div class="menu-list-item" data-view="einstellungen">Einstellungen</div>
       </div>
@@ -393,7 +460,16 @@
 
         <div id="detail-wochenplan" style="display:none;">
           <div class="section-label">Wochenplan</div>
-          <div class="empty">Kommt bald.</div>
+          <div id="wochenplan-content"></div>
+        </div>
+
+        <div id="detail-todo" style="display:none;">
+          <div class="section-label">To-Do</div>
+          <div class="todo-add-row">
+            <input type="text" id="todo-input" placeholder="Neue Aufgabe" maxlength="80">
+            <span id="todo-add-btn">+</span>
+          </div>
+          <div id="todo-list"></div>
         </div>
 
         <div id="detail-kalender" style="display:none;">
@@ -403,7 +479,10 @@
 
         <div id="detail-einstellungen" style="display:none;">
           <div class="section-label">Einstellungen</div>
-          <div class="empty">Kommt bald.</div>
+          <label class="checklist-row">
+            <input type="checkbox" id="ferienmodus-toggle">
+            <span>Ferienmodus (Schule ausblenden)</span>
+          </label>
         </div>
       </div>
     </div>
@@ -413,13 +492,26 @@
     <div class="greeting" id="greeting">Guten Morgen</div>
     <div class="date" id="today-date"></div>
     <div class="wecker-hinweis" id="wecker-hinweis" style="display:none;"></div>
-    <div class="wecker-hinweis" id="sport-hinweis" style="display:none; margin-top:4px;"></div>
   </div>
+
+  <div class="sport-hinweis-ecke" id="sport-hinweis" style="display:none;"></div>
 
   <!-- Merkzettel: klicken zum Bearbeiten, Überschrift zeigt den Inhalt -->
   <div class="section" id="section-notiz">
     <div class="notiz-display empty" id="notiz-display">Notes</div>
     <textarea class="notiz-edit" id="notiz-edit" style="display:none;" maxlength="200" rows="3"></textarea>
+  </div>
+
+  <!-- Morgenroutine (nur vor Schulbeginn sichtbar) -->
+  <div class="section" id="section-morgenroutine" style="display:none;">
+    <div class="section-label">Morgenroutine</div>
+    <div id="morgenroutine-content"></div>
+  </div>
+
+  <!-- Packliste für morgen (abends sichtbar) -->
+  <div class="section" id="section-packliste" style="display:none;">
+    <div class="section-label">Packliste für morgen</div>
+    <div id="packliste-content"></div>
   </div>
 
   <!-- Nächste Stunde (nur während des Unterrichts sichtbar) -->

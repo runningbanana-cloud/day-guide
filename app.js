@@ -21,7 +21,7 @@ function init() {
   setupScrollReveal();
   setupMenu();
   updateFavicon();
-  setInterval(updateFavicon, 5 * 60 * 1000); // alle 5 Min. neu zeichnen
+  setInterval(updateFavicon, 30 * 60 * 1000); // alle 30 Min. neu zeichnen
 }
 
 // --- Easter Egg: Der Punkt auf dem Tabbogen-Icon wandert mit der Uhrzeit ---
@@ -35,10 +35,10 @@ function updateFavicon() {
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, size, size);
 
-  const margin = size * 0.18;
-  const x0 = margin, y0 = margin * 0.7, x1 = size - margin, y1 = size - margin * 0.3;
-  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  const rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
+  const cx = size / 2;
+  const cy = size * 0.85;
+  const rx = size * 0.34;
+  const ry = size * 0.32;
   const startDeg = 200, endDeg = 340;
 
   ctx.strokeStyle = "#8a8a8a";
@@ -160,6 +160,7 @@ function zeitHeuteAls(hhmm) {
 
 // --- Ermittelt die aktuelle Tagesphase: wochenende, vor, unterricht, heimweg, keineLektionen ---
 function getTagesPhase() {
+  if (localStorage.getItem("dayguide_ferienmodus") === "1") return "wochenende";
   if (istWochenende()) return "wochenende";
 
   const lektionen = getHeutigeLektionen();
@@ -233,12 +234,16 @@ function applyTimeOfDayLayout(phase) {
   const exams = document.getElementById("section-exams");
   const nextlesson = document.getElementById("section-nextlesson");
   const news = document.getElementById("section-news");
+  const morgenroutine = document.getElementById("section-morgenroutine");
+  const packliste = document.getElementById("section-packliste");
   const wrap = wetter.parentElement;
 
   // Grundzustand, wird unten je nach Phase wieder angepasst
   nextlesson.style.display = "none";
   lessons.style.display = "";
   bus.style.display = "";
+  morgenroutine.style.display = "none";
+  packliste.style.display = "none";
 
   if (phase === "wochenende") {
     bus.style.display = "none";
@@ -250,8 +255,6 @@ function applyTimeOfDayLayout(phase) {
   }
 
   if (phase === "unterricht") {
-    // Während des Unterrichts: Nächste Stunde ganz oben, Stundenplan normal,
-    // Wetter und Prüfungen kompakt nach hinten, Bus ausgeblendet
     bus.style.display = "none";
     nextlesson.style.display = "";
     wrap.append(nextlesson, lessons, wetter, exams, news);
@@ -262,26 +265,42 @@ function applyTimeOfDayLayout(phase) {
   }
 
   if (phase === "heimweg") {
-    // Schule ist vorbei: Heimweg zuoberst, Stundenplan wird nicht mehr gebraucht
     lessons.style.display = "none";
-    wrap.append(bus, wetter, exams, news);
+    if (istPacklisteZeit()) {
+      packliste.style.display = "";
+      renderPackliste();
+    }
+    wrap.append(bus, packliste, wetter, exams, news);
     bus.classList.remove("compact");
     wetter.classList.add("compact");
     exams.classList.add("compact");
     return;
   }
 
-  // Phase "vor", "keineLektionen" oder "abend" (Heimweg-Fenster vorbei)
-  const hour = new Date().getHours();
-  const istMorgen = hour < 13;
-
   if (phase === "abend") {
     bus.style.display = "none";
     lessons.style.display = "none";
+    if (istPacklisteZeit()) {
+      packliste.style.display = "";
+      renderPackliste();
+    }
+    wrap.append(packliste, wetter, exams, news);
+    wetter.classList.remove("compact");
+    exams.classList.remove("compact");
+    return;
   }
 
-  if (istMorgen && phase !== "abend") {
-    wrap.append(wetter, bus, lessons, exams, news);
+  // Phase "vor" oder "keineLektionen"
+  const hour = new Date().getHours();
+  const istMorgen = hour < 13;
+
+  if (phase === "vor") {
+    morgenroutine.style.display = "";
+    renderMorgenroutine();
+  }
+
+  if (istMorgen) {
+    wrap.append(morgenroutine, wetter, bus, lessons, exams, news);
     wetter.classList.remove("compact");
     bus.classList.remove("compact");
     lessons.classList.add("compact");
@@ -584,10 +603,12 @@ async function loadBusHinweg() {
         </span>
       </div>`;
 
-    // Empfehlung: Bus vs. 10 Minuten laufen
+    // Empfehlung: Bus, solange Wartezeit innerhalb der Toleranz liegt
     let empfehlung;
-    if (wartezeitMin <= GEHZEIT_BAHNHOF_KANTI) {
-      empfehlung = `Bus nehmen – du sparst ca. ${GEHZEIT_BAHNHOF_KANTI - wartezeitMin} Min. gegenüber Laufen.`;
+    if (wartezeitMin <= WARTETOLERANZ_MIN) {
+      empfehlung = wartezeitMin <= GEHZEIT_BAHNHOF_KANTI
+        ? `Bus nehmen – du sparst ca. ${GEHZEIT_BAHNHOF_KANTI - wartezeitMin} Min. gegenüber Laufen.`
+        : `Bus nehmen – ${wartezeitMin} Min. warten ist noch ok.`;
     } else {
       empfehlung = `Lauf lieber – der Bus braucht ${wartezeitMin} Min. bis Abfahrt, zu Fuß bist du in ${GEHZEIT_BAHNHOF_KANTI} Min. da.`;
     }
@@ -659,8 +680,10 @@ async function loadBusHeimweg() {
       const wartezeitMin = Math.round((abfahrtPlan - now) / 60000) + verspaetung;
 
       let empfehlung;
-      if (wartezeitMin <= GEHZEIT_BAHNHOF_KANTI) {
-        empfehlung = `Bus nehmen – du sparst ca. ${GEHZEIT_BAHNHOF_KANTI - wartezeitMin} Min. gegenüber Laufen.`;
+      if (wartezeitMin <= WARTETOLERANZ_MIN) {
+        empfehlung = wartezeitMin <= GEHZEIT_BAHNHOF_KANTI
+          ? `Bus nehmen – du sparst ca. ${GEHZEIT_BAHNHOF_KANTI - wartezeitMin} Min. gegenüber Laufen.`
+          : `Bus nehmen – ${wartezeitMin} Min. warten ist noch ok.`;
       } else {
         empfehlung = `Lauf lieber zum Bahnhof – der Bus braucht ${wartezeitMin} Min., zu Fuß bist du in ${GEHZEIT_BAHNHOF_KANTI} Min. da.`;
       }
@@ -779,7 +802,66 @@ function updateWeckerHinweis() {
     ${weckzeitStr}`;
 }
 
-// --- Erkennt Schulsport (aus Stundenplan) und persönlichen Sport getrennt ---
+// --- Generische Checkliste mit Tages-Speicherung im Browser ---
+function renderChecklist(containerId, storageKeyPrefix, items) {
+  const container = document.getElementById(containerId);
+  const heute = heuteStr();
+
+  container.innerHTML = items.map((item, i) => {
+    const key = `${storageKeyPrefix}_${heute}_${i}`;
+    const checked = localStorage.getItem(key) === "1";
+    return `
+      <label class="checklist-row${checked ? " done" : ""}">
+        <input type="checkbox" data-key="${key}" ${checked ? "checked" : ""}>
+        <span>${item}</span>
+      </label>`;
+  }).join("");
+
+  container.querySelectorAll("input[type=checkbox]").forEach(cb => {
+    cb.addEventListener("change", () => {
+      localStorage.setItem(cb.dataset.key, cb.checked ? "1" : "0");
+      cb.closest(".checklist-row").classList.toggle("done", cb.checked);
+    });
+  });
+}
+
+function renderMorgenroutine() {
+  renderChecklist("morgenroutine-content", "dayguide_morgenroutine", MORGENROUTINE);
+
+  const weekday = new Date().getDay();
+  const zeit1 = ETAPPE1_FAHRPLAN[weekday];
+  if (zeit1) {
+    const [h, m] = zeit1.split(":").map(Number);
+    const abfahrt = new Date();
+    abfahrt.setHours(h, m, 0, 0);
+    const losfahren = new Date(abfahrt.getTime() - ZEIT_ZUHAUSE_HALTESTELLE_MIN * 60000);
+    const losfahrenStr = losfahren.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+    const el = document.getElementById("morgenroutine-content");
+    el.innerHTML += `
+      <div class="lesson-row" style="margin-top:6px;">
+        <span class="lesson-time">→</span>
+        <span>Losfahren spätestens ${losfahrenStr}</span>
+      </div>`;
+  }
+}
+
+function istPacklisteZeit() {
+  const now = new Date();
+  const stunden = now.getHours() + now.getMinutes() / 60;
+  return stunden >= PACKLISTE_AB_STUNDE;
+}
+
+function renderPackliste() {
+  const morgen = new Date();
+  morgen.setDate(morgen.getDate() + 1);
+  const morgenWeekday = morgen.getDay();
+
+  let items = [...PACKLISTE_SCHULE];
+  if (istSchulsporttag(morgenWeekday) || istPersoenlicherSporttag(morgenWeekday)) {
+    items = items.concat(PACKLISTE_SPORT);
+  }
+  renderChecklist("packliste-content", "dayguide_packliste", items);
+}
 function istSchulsporttag(weekday) {
   return STUNDENPLAN.some(l => l.weekday === weekday && l.subject.toUpperCase().includes("SPO"));
 }
@@ -1038,8 +1120,112 @@ function setupMenu() {
       document.querySelectorAll("#menu-detail > div[id^='detail-']").forEach(d => d.style.display = "none");
       document.getElementById(`detail-${view}`).style.display = "block";
       if (view === "stundenplan") renderMorgenStundenplan();
+      if (view === "wochenplan") renderWochenplan();
+      if (view === "todo") renderTodo();
     });
   });
+
+  setupTodoInput();
+
+  const ferienToggle = document.getElementById("ferienmodus-toggle");
+  ferienToggle.checked = localStorage.getItem("dayguide_ferienmodus") === "1";
+  ferienToggle.addEventListener("change", () => {
+    localStorage.setItem("dayguide_ferienmodus", ferienToggle.checked ? "1" : "0");
+    location.reload();
+  });
+}
+
+// --- To-Do-Liste (bleibt gespeichert, bis du Einträge selbst löschst) ---
+function ladeTodos() {
+  return JSON.parse(localStorage.getItem("dayguide_todos") || "[]");
+}
+function speichereTodos(todos) {
+  localStorage.setItem("dayguide_todos", JSON.stringify(todos));
+}
+
+function renderTodo() {
+  const todos = ladeTodos();
+  const list = document.getElementById("todo-list");
+
+  if (todos.length === 0) {
+    list.innerHTML = `<div class="empty">Keine Aufgaben.</div>`;
+    return;
+  }
+
+  list.innerHTML = todos.map((t, i) => `
+    <label class="checklist-row todo-row${t.done ? " done" : ""}">
+      <input type="checkbox" data-i="${i}" ${t.done ? "checked" : ""}>
+      <span>${t.text}</span>
+      <span class="todo-delete" data-i="${i}">✕</span>
+    </label>`).join("");
+
+  list.querySelectorAll("input[type=checkbox]").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const todos = ladeTodos();
+      todos[cb.dataset.i].done = cb.checked;
+      speichereTodos(todos);
+      renderTodo();
+    });
+  });
+  list.querySelectorAll(".todo-delete").forEach(el => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      const todos = ladeTodos();
+      todos.splice(Number(el.dataset.i), 1);
+      speichereTodos(todos);
+      renderTodo();
+    });
+  });
+}
+
+function setupTodoInput() {
+  const input = document.getElementById("todo-input");
+  const btn = document.getElementById("todo-add-btn");
+
+  function hinzufuegen() {
+    const text = input.value.trim();
+    if (!text) return;
+    const todos = ladeTodos();
+    todos.push({ text, done: false });
+    speichereTodos(todos);
+    input.value = "";
+    renderTodo();
+  }
+
+  btn.addEventListener("click", hinzufuegen);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") hinzufuegen();
+  });
+}
+
+function renderWochenplan() {
+  const el = document.getElementById("wochenplan-content");
+  const tage = [1, 2, 3, 4, 5, 6, 0];
+  const tagesNamen = { 1: "Montag", 2: "Dienstag", 3: "Mittwoch", 4: "Donnerstag", 5: "Freitag", 6: "Samstag", 0: "Sonntag" };
+
+  el.innerHTML = tage.map(tag => {
+    const lektionen = STUNDENPLAN
+      .filter(l => l.weekday === tag)
+      .sort((a, b) => a.time.localeCompare(b.time));
+
+    let inhalt = lektionen.length > 0
+      ? lektionen.map(l => `
+          <div class="lesson-row">
+            <span class="lesson-time">${l.time}</span>
+            <span>${l.subject}${l.room ? " · " + l.room : ""}</span>
+          </div>`).join("")
+      : `<div class="empty">Keine Lektionen eingetragen.</div>`;
+
+    if (MEAL_PREP[tag]) {
+      inhalt += `
+        <div class="lesson-row meal-prep-row">
+          <span class="lesson-time">🍳</span>
+          <span>${MEAL_PREP[tag]}</span>
+        </div>`;
+    }
+
+    return `<div class="wochentag-label">${tagesNamen[tag]}</div>${inhalt}`;
+  }).join("");
 }
 
 function renderMorgenStundenplan() {
