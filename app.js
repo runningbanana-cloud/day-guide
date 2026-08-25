@@ -83,10 +83,22 @@ function setupScrollReveal() {
     const zoneStart = vh;        // ganz unten am Bildschirmrand: noch dunkel
     const zoneEnde = vh * 0.55;  // etwa Bildschirmmitte: voll sichtbar
 
+    // Absicherung: Wenn die Seite kurz ist, reicht der Scroll-Weg manchmal
+    // nicht aus, damit die letzten Abschnitte ihre volle Helligkeit über
+    // die normale Positions-Berechnung erreichen. Sobald wirklich das Ende
+    // der Seite erreicht ist, zeigen wir stattdessen alles sofort voll an.
+    const maxScroll = document.documentElement.scrollHeight - vh;
+    const amEnde = window.scrollY >= maxScroll - 2;
+
     sections.forEach(sec => {
-      const rect = sec.getBoundingClientRect();
-      let fortschritt = (zoneStart - rect.top) / (zoneStart - zoneEnde);
-      fortschritt = Math.max(0, Math.min(1, fortschritt));
+      let fortschritt;
+      if (amEnde) {
+        fortschritt = 1;
+      } else {
+        const rect = sec.getBoundingClientRect();
+        fortschritt = (zoneStart - rect.top) / (zoneStart - zoneEnde);
+        fortschritt = Math.max(0, Math.min(1, fortschritt));
+      }
       sec.style.opacity = fortschritt;
       sec.style.filter = `brightness(${0.25 + 0.75 * fortschritt})`;
       sec.style.transform = `translateY(${(1 - fortschritt) * 16}px)`;
@@ -103,8 +115,10 @@ function setupScrollReveal() {
       ticking = true;
     }
   }, { passive: true });
+  window.addEventListener("resize", update);
 
   update();
+  setTimeout(update, 800); // Inhalte laden teils nach, Seitenhöhe ändert sich
 }
 
 // --- Merkzettel: kleines Icon oben rechts öffnet ein Popup ---
@@ -141,6 +155,7 @@ function loadNotiz() {
     updateNotizDisplay(display, text);
     edit.style.display = "none";
     display.style.display = "block";
+    popup.style.display = "none";
   });
 
   loeschen.addEventListener("click", (e) => {
@@ -256,6 +271,7 @@ function applyTimeOfDayLayout(phase) {
   const news = document.getElementById("section-news");
   const morgenroutine = document.getElementById("section-morgenroutine");
   const packliste = document.getElementById("section-packliste");
+  const abendroutine = document.getElementById("section-abendroutine");
   const wrap = wetter.parentElement;
 
   // Grundzustand, wird unten je nach Phase wieder angepasst
@@ -264,6 +280,7 @@ function applyTimeOfDayLayout(phase) {
   bus.style.display = "";
   morgenroutine.style.display = "none";
   packliste.style.display = "none";
+  abendroutine.style.display = "none";
 
   if (phase === "wochenende") {
     bus.style.display = "none";
@@ -289,8 +306,10 @@ function applyTimeOfDayLayout(phase) {
     if (istPacklisteZeit()) {
       packliste.style.display = "";
       renderPackliste();
+      abendroutine.style.display = "";
+      renderAbendroutine();
     }
-    wrap.append(bus, packliste, wetter, exams, news);
+    wrap.append(bus, packliste, abendroutine, wetter, exams, news);
     bus.classList.remove("compact");
     wetter.classList.add("compact");
     exams.classList.add("compact");
@@ -303,8 +322,10 @@ function applyTimeOfDayLayout(phase) {
     if (istPacklisteZeit()) {
       packliste.style.display = "";
       renderPackliste();
+      abendroutine.style.display = "";
+      renderAbendroutine();
     }
-    wrap.append(packliste, wetter, exams, news);
+    wrap.append(packliste, abendroutine, wetter, exams, news);
     wetter.classList.remove("compact");
     exams.classList.remove("compact");
     return;
@@ -389,6 +410,7 @@ async function loadWeather() {
     function render() {
       el.className = "";
       el.innerHTML = offen ? vollHtml : "";
+      label.innerHTML = `Wetter ${temp}° <span class="live-dot"></span>`;
       if (offen) wireWeatherToggles(data);
     }
     render();
@@ -441,11 +463,25 @@ function wireWeatherToggles(data) {
   });
 }
 
+// --- Hilfsfunktion: Datum/Zeit-Strings von Open-Meteo (ohne Zeitzone) sicher
+// als LOKALE Zeit parsen. new Date(string) bzw. toISOString() würden UTC
+// verwenden und je nach Zeitzone/Browser falsche Ergebnisse liefern. ---
+function parseLocalDateTime(str) {
+  const [datum, zeit] = str.split("T");
+  const [jahr, monat, tag] = datum.split("-").map(Number);
+  const [stunde, minute] = (zeit || "0:0").split(":").map(Number);
+  return new Date(jahr, monat - 1, tag, stunde, minute);
+}
+
 function getNaechsteStundeText(data) {
   const ziel = new Date();
   ziel.setHours(ziel.getHours() + 1, 0, 0, 0);
-  const iso = ziel.toISOString().slice(0, 13); // "JJJJ-MM-TTTHH"
-  const idx = data.hourly.time.findIndex(t => t.startsWith(iso));
+  const jahr = ziel.getFullYear();
+  const monat = String(ziel.getMonth() + 1).padStart(2, "0");
+  const tag = String(ziel.getDate()).padStart(2, "0");
+  const stunde = String(ziel.getHours()).padStart(2, "0");
+  const praefix = `${jahr}-${monat}-${tag}T${stunde}`;
+  const idx = data.hourly.time.findIndex(t => t.startsWith(praefix));
   if (idx === -1) return null;
   return weatherCodeToText(data.hourly.weather_code[idx]);
 }
@@ -517,15 +553,15 @@ async function initRadarMap() {
 
 function buildWeatherForecastHtml(data) {
   const now = new Date();
-  const heuteStr = now.toISOString().slice(0, 10);
+  const heuteLokal = heuteStr();
 
   // Rest des Tages: stündlich, alle 3 Stunden, ab jetzt bis Mitternacht
   const restHtml = data.hourly.time
     .map((t, i) => ({ t, i }))
-    .filter(({ t }) => t.startsWith(heuteStr) && new Date(t) > now)
+    .filter(({ t }) => t.startsWith(heuteLokal) && parseLocalDateTime(t) > now)
     .filter((_, idx) => idx % 3 === 0)
     .map(({ t, i }) => {
-      const stunde = new Date(t).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+      const stunde = parseLocalDateTime(t).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
       const temp = Math.round(data.hourly.temperature_2m[i]);
       return `<div class="hourly-row"><span>${stunde}</span><span>${temp}°</span></div>`;
     }).join("");
@@ -533,7 +569,7 @@ function buildWeatherForecastHtml(data) {
   // Nächste 7 Tage (Index 0 = heute, also ab 1)
   const tageHtml = data.daily.time.slice(1, 8).map((datum, idx) => {
     const i = idx + 1;
-    const tag = new Date(datum).toLocaleDateString("de-CH", { weekday: "short", day: "numeric", month: "numeric" });
+    const tag = parseLocalDateTime(datum).toLocaleDateString("de-CH", { weekday: "short", day: "numeric", month: "numeric" });
     const desc = weatherCodeToText(data.daily.weather_code[i]);
     const max = Math.round(data.daily.temperature_2m_max[i]);
     const min = Math.round(data.daily.temperature_2m_min[i]);
@@ -823,7 +859,7 @@ function updateWeckerHinweis() {
 }
 
 // --- Generische Checkliste mit Tages-Speicherung im Browser ---
-function renderChecklist(containerId, storageKeyPrefix, items) {
+function renderChecklist(containerId, storageKeyPrefix, items, onChange) {
   const container = document.getElementById(containerId);
   const heute = heuteStr();
 
@@ -841,6 +877,7 @@ function renderChecklist(containerId, storageKeyPrefix, items) {
     cb.addEventListener("change", () => {
       localStorage.setItem(cb.dataset.key, cb.checked ? "1" : "0");
       cb.closest(".checklist-row").classList.toggle("done", cb.checked);
+      if (onChange) onChange();
     });
   });
 }
@@ -880,7 +917,26 @@ function renderPackliste() {
   if (istSchulsporttag(morgenWeekday) || istPersoenlicherSporttag(morgenWeekday)) {
     items = items.concat(PACKLISTE_SPORT);
   }
-  renderChecklist("packliste-content", "dayguide_packliste", items);
+
+  function pruefeVollstaendig() {
+    const heute = heuteStr();
+    const alleErledigt = items.every((_, i) => localStorage.getItem(`dayguide_packliste_${heute}_${i}`) === "1");
+    document.getElementById("section-packliste").style.display = alleErledigt ? "none" : "";
+  }
+
+  renderChecklist("packliste-content", "dayguide_packliste", items, pruefeVollstaendig);
+  pruefeVollstaendig();
+}
+
+function renderAbendroutine() {
+  function pruefeVollstaendig() {
+    const heute = heuteStr();
+    const alleErledigt = ABENDROUTINE.every((_, i) => localStorage.getItem(`dayguide_abendroutine_${heute}_${i}`) === "1");
+    document.getElementById("section-abendroutine").style.display = alleErledigt ? "none" : "";
+  }
+
+  renderChecklist("abendroutine-content", "dayguide_abendroutine", ABENDROUTINE, pruefeVollstaendig);
+  pruefeVollstaendig();
 }
 function istSchulsporttag(weekday) {
   return STUNDENPLAN.some(l => l.weekday === weekday && l.subject.toUpperCase().includes("SPO"));
@@ -1023,7 +1079,11 @@ function getNewsSlot() {
 }
 
 function heuteStr() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const jahr = d.getFullYear();
+  const monat = String(d.getMonth() + 1).padStart(2, "0");
+  const tag = String(d.getDate()).padStart(2, "0");
+  return `${jahr}-${monat}-${tag}`;
 }
 
 async function loadNews() {
@@ -1239,7 +1299,7 @@ function renderWochenplan() {
     if (MEAL_PREP[tag]) {
       inhalt += `
         <div class="lesson-row meal-prep-row">
-          <span class="lesson-time">🍳</span>
+          <span class="lesson-time">–</span>
           <span>${MEAL_PREP[tag]}</span>
         </div>`;
     }

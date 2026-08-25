@@ -109,7 +109,7 @@
   }
   .weather-temp {
     font-family: var(--font-display);
-    font-size: 30px;
+    font-size: 42px;
     font-weight: 400;
   }
   .weather-desc { color: var(--text-mid); font-size: 14px; }
@@ -408,7 +408,7 @@
     margin: 18px 0 6px;
   }
   .wochentag-label:first-child { margin-top: 0; }
-  .meal-prep-row { color: var(--amber); }
+  .meal-prep-row { color: var(--text); }
 
   /* Checklisten (Morgenroutine, Packliste, Einstellungen) */
   .checklist-row {
@@ -557,6 +557,12 @@
   <div class="section" id="section-packliste" style="display:none;">
     <div class="section-label">Packliste für morgen</div>
     <div id="packliste-content"></div>
+  </div>
+
+  <!-- Abendroutine (abends sichtbar) -->
+  <div class="section" id="section-abendroutine" style="display:none;">
+    <div class="section-label">Abendroutine</div>
+    <div id="abendroutine-content"></div>
   </div>
 
   <!-- Nächste Stunde (nur während des Unterrichts sichtbar) -->

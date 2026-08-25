@@ -25,11 +25,17 @@ const HEIMWEG_FENSTER_MIN = 90;
 const PERSOENLICHE_SPORT_TAGE = [5, 6]; // Freitag, Samstag
 
 // --- Morgenroutine (wird vor Schulbeginn angezeigt, abhakbar) ---
-const MORGENROUTINE = ["Gesicht waschen & Haare nass machen", "Proteinshake trinken", "Zähne putzen", "Anziehen", "Haare machen", "Toilette"];
+// Enthält auch Sachen, die über Nacht im Kühlschrank sind und daher nicht
+// schon am Vorabend eingepackt werden können.
+const MORGENROUTINE = ["Gesicht waschen & Haare nass machen", "Proteinshake trinken", "Zähne putzen", "Anziehen", "Haare machen", "Toilette", "Wasserflasche", "Overnight Oats + Besteck", "Zmittag"];
 
 // --- Packliste (wird abends für morgen angezeigt) ---
-const PACKLISTE_SCHULE = ["Laptop & Ladekabel", "Overnight Oats + Besteck", "Zmittag", "Mäppchen", "Bücher & Ordner", "Hausaufgaben"];
+// Nur Sachen, die man wirklich am Vorabend schon einpacken kann.
+const PACKLISTE_SCHULE = ["Laptop & Ladekabel", "Mäppchen", "Bücher & Ordner", "Hausaufgaben"];
 const PACKLISTE_SPORT = ["Sportschuhe", "Sporthose", "Sport-T-Shirt"];
+
+// --- Abendroutine (wird zusammen mit der Packliste angezeigt) ---
+const ABENDROUTINE = ["Kleider für morgen bereitlegen", "Gesicht waschen", "Zähne putzen"];
 
 // Ab welcher Uhrzeit (Dezimalstunden, z. B. 20.5 = 20:30) die Packliste
 // abends überhaupt erscheint.
