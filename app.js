@@ -5,6 +5,14 @@
 
 const WOCHENTAGE = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
 
+// Kleines Bus-Symbol für die Bus-Labels
+const BUS_ICON_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;">
+  <rect x="4" y="4" width="16" height="13" rx="2"></rect>
+  <path d="M4 12h16"></path>
+  <path d="M7 20v-2"></path>
+  <path d="M17 20v-2"></path>
+</svg>`;
+
 function init() {
   setGreetingAndDate();
   const phase = getTagesPhase();
@@ -20,6 +28,7 @@ function init() {
   loadNews();
   setupScrollReveal();
   setupMenu();
+  setupWasser();
   updateFavicon();
   setInterval(updateFavicon, 30 * 60 * 1000); // alle 30 Min. neu zeichnen
 }
@@ -75,7 +84,7 @@ function updateFavicon() {
 // --- Sektionen beim Scrollen kontinuierlich von dunkel zu hell einblenden ---
 function setupScrollReveal() {
   const reduzierteBewegung = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const sections = document.querySelectorAll(".section");
+  const sections = Array.from(document.querySelectorAll(".section"));
   if (reduzierteBewegung) return; // Bewegung deaktiviert -> alles normal sichtbar lassen
 
   function update() {
@@ -84,24 +93,26 @@ function setupScrollReveal() {
     const zoneEnde = vh * 0.55;  // etwa Bildschirmmitte: voll sichtbar
 
     // Absicherung: Wenn die Seite kurz ist, reicht der Scroll-Weg manchmal
-    // nicht aus, damit die letzten Abschnitte ihre volle Helligkeit über
+    // nicht aus, damit die letzten Abschnitte ihre volle Sichtbarkeit über
     // die normale Positions-Berechnung erreichen. Sobald wirklich das Ende
     // der Seite erreicht ist, zeigen wir stattdessen alles sofort voll an.
     const maxScroll = document.documentElement.scrollHeight - vh;
     const amEnde = window.scrollY >= maxScroll - 2;
 
-    sections.forEach(sec => {
-      let fortschritt;
-      if (amEnde) {
-        fortschritt = 1;
-      } else {
-        const rect = sec.getBoundingClientRect();
-        fortschritt = (zoneStart - rect.top) / (zoneStart - zoneEnde);
-        fortschritt = Math.max(0, Math.min(1, fortschritt));
-      }
-      sec.style.opacity = fortschritt;
-      sec.style.filter = `brightness(${0.25 + 0.75 * fortschritt})`;
-      sec.style.transform = `translateY(${(1 - fortschritt) * 16}px)`;
+    // Erst ALLE Positionen auslesen (Read-Phase), dann erst ALLE Stile
+    // setzen (Write-Phase) - vermeidet Layout-Thrashing, das auf dem
+    // Handy sonst zu Rucklern führen kann.
+    const werte = sections.map(sec => {
+      if (amEnde) return 1;
+      const rect = sec.getBoundingClientRect();
+      let f = (zoneStart - rect.top) / (zoneStart - zoneEnde);
+      return Math.max(0, Math.min(1, f));
+    });
+
+    sections.forEach((sec, i) => {
+      const f = werte[i];
+      sec.style.opacity = f;
+      sec.style.transform = `translateY(${(1 - f) * 16}px)`;
     });
   }
 
@@ -121,22 +132,31 @@ function setupScrollReveal() {
   setTimeout(update, 800); // Inhalte laden teils nach, Seitenhöhe ändert sich
 }
 
-// --- Merkzettel: kleines Icon oben rechts öffnet ein Popup ---
+// --- Merkzettel: kleines Icon oben rechts öffnet ein Popup zum Bearbeiten,
+// zusätzlich erscheint ein Post-it ganz oben, sobald wirklich was drinsteht ---
 function loadNotiz() {
   const display = document.getElementById("notiz-display");
   const edit = document.getElementById("notiz-edit");
   const btn = document.getElementById("notiz-btn");
   const popup = document.getElementById("notiz-popup");
   const loeschen = document.getElementById("notiz-loeschen");
+  const postitSection = document.getElementById("section-notiz-postit");
+  const postitText = document.getElementById("notiz-postit-text");
   const gespeichert = localStorage.getItem("dayguide_notiz") || "";
 
   updateNotizDisplay(display, gespeichert);
+  updatePostit(postitSection, postitText, gespeichert);
   edit.value = gespeichert;
+
+  function popupOeffnen() {
+    popup.style.display = "block";
+  }
 
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
     popup.style.display = popup.style.display === "none" ? "block" : "none";
   });
+  postitSection.addEventListener("click", popupOeffnen);
   document.addEventListener("click", (e) => {
     if (popup.style.display !== "none" && !popup.contains(e.target) && e.target !== btn) {
       popup.style.display = "none";
@@ -153,6 +173,7 @@ function loadNotiz() {
     const text = edit.value.trim();
     localStorage.setItem("dayguide_notiz", text);
     updateNotizDisplay(display, text);
+    updatePostit(postitSection, postitText, text);
     edit.style.display = "none";
     display.style.display = "block";
     popup.style.display = "none";
@@ -163,6 +184,35 @@ function loadNotiz() {
     localStorage.setItem("dayguide_notiz", "");
     edit.value = "";
     updateNotizDisplay(display, "");
+    updatePostit(postitSection, postitText, "");
+  });
+}
+
+function updatePostit(section, textEl, text) {
+  if (text) {
+    textEl.textContent = text;
+    section.style.display = "";
+  } else {
+    section.style.display = "none";
+  }
+}
+
+// --- Wasser-Erinnerung: Zähler pro Tag, tippen zum Erhöhen ---
+function setupWasser() {
+  const key = `dayguide_wasser_${heuteStr()}`;
+  const countEl = document.getElementById("wasser-count");
+  const plusBtn = document.getElementById("wasser-plus");
+
+  function update() {
+    const val = parseInt(localStorage.getItem(key) || "0", 10);
+    countEl.textContent = `${val} / ${WASSER_ZIEL}`;
+  }
+  update();
+
+  plusBtn.addEventListener("click", () => {
+    const val = parseInt(localStorage.getItem(key) || "0", 10) + 1;
+    localStorage.setItem(key, String(val));
+    update();
   });
 }
 
@@ -223,11 +273,11 @@ function handleBusSection(phase) {
 
   if (phase === "vor" || phase === "keineLektionen") {
     bus.style.display = "";
-    label.innerHTML = `Weg zur Kanti <span class="live-dot"></span>`;
+    label.innerHTML = `${BUS_ICON_SVG} Weg zur Kanti <span class="live-dot"></span>`;
     loadBusHinweg();
   } else if (phase === "heimweg") {
     bus.style.display = "";
-    label.innerHTML = `Heimweg <span class="live-dot"></span>`;
+    label.innerHTML = `${BUS_ICON_SVG} Heimweg <span class="live-dot"></span>`;
     loadBusHeimweg();
   } else {
     // wochenende, unterricht oder abend (Heimweg-Fenster vorbei): Bus ausblenden
@@ -1202,6 +1252,7 @@ function setupMenu() {
       if (view === "stundenplan") renderMorgenStundenplan();
       if (view === "wochenplan") renderWochenplan();
       if (view === "todo") renderTodo();
+      if (view === "kalender") renderKalender();
     });
   });
 
@@ -1276,6 +1327,42 @@ function setupTodoInput() {
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") hinzufuegen();
   });
+}
+
+function renderKalender() {
+  const heute = new Date();
+  const jahr = heute.getFullYear();
+  const monat = heute.getMonth();
+  const monatsName = heute.toLocaleDateString("de-CH", { month: "long", year: "numeric" });
+  document.getElementById("kalender-monat-label").textContent = monatsName;
+
+  const pruefungsTage = new Set(
+    PRUEFUNGEN.filter(p => {
+      const d = new Date(p.date);
+      return d.getFullYear() === jahr && d.getMonth() === monat;
+    }).map(p => new Date(p.date).getDate())
+  );
+
+  const ersterTagWochentag = (new Date(jahr, monat, 1).getDay() + 6) % 7; // Mo=0
+  const anzahlTage = new Date(jahr, monat + 1, 0).getDate();
+  const heuteTag = heute.getDate();
+
+  let html = `<div class="kalender-grid">`;
+  ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].forEach(w => {
+    html += `<div class="kalender-wochentag">${w}</div>`;
+  });
+  for (let i = 0; i < ersterTagWochentag; i++) {
+    html += `<div class="kalender-tag leer"></div>`;
+  }
+  for (let tag = 1; tag <= anzahlTage; tag++) {
+    const klassen = ["kalender-tag"];
+    if (tag === heuteTag) klassen.push("heute");
+    if (pruefungsTage.has(tag)) klassen.push("pruefung");
+    html += `<div class="${klassen.join(" ")}">${tag}</div>`;
+  }
+  html += `</div>`;
+
+  document.getElementById("kalender-content").innerHTML = html;
 }
 
 function renderWochenplan() {

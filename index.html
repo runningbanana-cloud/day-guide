@@ -74,6 +74,7 @@
     border: 1px solid var(--text);
     border-radius: 16px;
     margin-bottom: 14px;
+    will-change: opacity, transform;
   }
 
   .section-label {
@@ -231,6 +232,14 @@
   }
 
   /* Merkzettel */
+  .notiz-postit-text {
+    font-family: var(--font-display);
+    font-size: 18px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    cursor: pointer;
+  }
+
   .notiz-display {
     cursor: pointer;
     font-family: var(--font-display);
@@ -410,6 +419,64 @@
   .wochentag-label:first-child { margin-top: 0; }
   .meal-prep-row { color: var(--text); }
 
+  /* Wasser-Erinnerung */
+  .wasser-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .wasser-row span:first-child {
+    font-family: var(--font-display);
+    font-size: 20px;
+  }
+  .wasser-plus {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--text);
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .wasser-plus:active { background: #1a1a1a; }
+
+  /* Kalender */
+  .kalender-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .kalender-wochentag {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .kalender-tag {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    border-radius: 8px;
+    position: relative;
+  }
+  .kalender-tag.leer { visibility: hidden; }
+  .kalender-tag.heute { border: 1px solid var(--text); }
+  .kalender-tag.pruefung::after {
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--amber);
+  }
+
   /* Checklisten (Morgenroutine, Packliste, Einstellungen) */
   .checklist-row {
     display: flex;
@@ -513,8 +580,8 @@
         </div>
 
         <div id="detail-kalender" style="display:none;">
-          <div class="section-label">Kalender</div>
-          <div class="empty">Kommt bald.</div>
+          <div class="section-label" id="kalender-monat-label">Kalender</div>
+          <div id="kalender-content"></div>
         </div>
 
         <div id="detail-einstellungen" style="display:none;">
@@ -532,6 +599,20 @@
     <div class="greeting" id="greeting">Guten Morgen</div>
     <div class="date" id="today-date"></div>
     <div class="wecker-hinweis" id="wecker-hinweis" style="display:none;"></div>
+  </div>
+
+  <!-- Notiz als Post-it, nur sichtbar wenn wirklich was drinsteht -->
+  <div class="section" id="section-notiz-postit" style="display:none;">
+    <div class="notiz-postit-text" id="notiz-postit-text"></div>
+  </div>
+
+  <!-- Wasser-Erinnerung, den ganzen Tag sichtbar -->
+  <div class="section" id="section-wasser">
+    <div class="section-label">Wasser</div>
+    <div class="wasser-row">
+      <span id="wasser-count">0 / 8</span>
+      <span class="wasser-plus" id="wasser-plus">+</span>
+    </div>
   </div>
 
   <div class="sport-hinweis-ecke" id="sport-hinweis" style="display:none;"></div>
