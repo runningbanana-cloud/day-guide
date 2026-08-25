@@ -36,7 +36,7 @@ function updateFavicon() {
   ctx.fillRect(0, 0, size, size);
 
   const cx = size / 2;
-  const cy = size * 0.85;
+  const cy = size * 0.77;
   const rx = size * 0.34;
   const ry = size * 0.32;
   const startDeg = 200, endDeg = 340;
@@ -107,14 +107,27 @@ function setupScrollReveal() {
   update();
 }
 
-// --- Merkzettel: ein Feld, Überschrift zeigt den Inhalt oder "Notes" ---
+// --- Merkzettel: kleines Icon oben rechts öffnet ein Popup ---
 function loadNotiz() {
   const display = document.getElementById("notiz-display");
   const edit = document.getElementById("notiz-edit");
+  const btn = document.getElementById("notiz-btn");
+  const popup = document.getElementById("notiz-popup");
+  const loeschen = document.getElementById("notiz-loeschen");
   const gespeichert = localStorage.getItem("dayguide_notiz") || "";
 
   updateNotizDisplay(display, gespeichert);
   edit.value = gespeichert;
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    popup.style.display = popup.style.display === "none" ? "block" : "none";
+  });
+  document.addEventListener("click", (e) => {
+    if (popup.style.display !== "none" && !popup.contains(e.target) && e.target !== btn) {
+      popup.style.display = "none";
+    }
+  });
 
   display.addEventListener("click", () => {
     display.style.display = "none";
@@ -128,6 +141,13 @@ function loadNotiz() {
     updateNotizDisplay(display, text);
     edit.style.display = "none";
     display.style.display = "block";
+  });
+
+  loeschen.addEventListener("click", (e) => {
+    e.stopPropagation();
+    localStorage.setItem("dayguide_notiz", "");
+    edit.value = "";
+    updateNotizDisplay(display, "");
   });
 }
 

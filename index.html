@@ -234,10 +234,11 @@
   .notiz-display {
     cursor: pointer;
     font-family: var(--font-display);
-    font-size: 22px;
+    font-size: 16px;
     color: var(--text);
-    padding: 4px 0;
+    padding: 2px 0;
     line-height: 1.3;
+    flex: 1;
   }
   .notiz-display.empty {
     font-family: var(--font-body);
@@ -307,12 +308,51 @@
   .sport-hinweis-ecke {
     position: fixed;
     top: max(20px, env(safe-area-inset-top));
-    right: 60px;
+    right: 100px;
     color: var(--text);
     z-index: 100;
     padding: 8px;
   }
   .sport-hinweis-ecke svg { width: 22px; height: 22px; }
+
+  .notiz-btn {
+    position: fixed;
+    top: max(20px, env(safe-area-inset-top));
+    right: 60px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 8px;
+    z-index: 100;
+  }
+
+  .notiz-popup {
+    position: fixed;
+    top: max(56px, calc(env(safe-area-inset-top) + 56px));
+    right: 20px;
+    width: 240px;
+    background: #0a0a0a;
+    border: 1px solid var(--text);
+    border-radius: 14px;
+    padding: 14px 16px;
+    z-index: 150;
+  }
+  .notiz-popup-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .notiz-loeschen {
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px;
+    flex-shrink: 0;
+  }
 
   .menu-overlay {
     display: none;
@@ -497,8 +537,13 @@
   <div class="sport-hinweis-ecke" id="sport-hinweis" style="display:none;"></div>
 
   <!-- Merkzettel: klicken zum Bearbeiten, Überschrift zeigt den Inhalt -->
-  <div class="section" id="section-notiz">
-    <div class="notiz-display empty" id="notiz-display">Notes</div>
+  <button class="notiz-btn" id="notiz-btn" aria-label="Notiz">✎</button>
+
+  <div class="notiz-popup" id="notiz-popup" style="display:none;">
+    <div class="notiz-popup-head">
+      <div class="notiz-display empty" id="notiz-display">Notes</div>
+      <span class="notiz-loeschen" id="notiz-loeschen">✕</span>
+    </div>
     <textarea class="notiz-edit" id="notiz-edit" style="display:none;" maxlength="200" rows="3"></textarea>
   </div>
 

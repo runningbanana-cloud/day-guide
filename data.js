@@ -28,7 +28,7 @@ const PERSOENLICHE_SPORT_TAGE = [5, 6]; // Freitag, Samstag
 const MORGENROUTINE = ["Gesicht waschen & Haare nass machen", "Proteinshake trinken", "Zähne putzen", "Anziehen", "Haare machen", "Toilette"];
 
 // --- Packliste (wird abends für morgen angezeigt) ---
-const PACKLISTE_SCHULE = ["Laptop & Ladekabel", "Overnight Oats + Besteck", "Mäppchen", "Bücher & Ordner", "Hausaufgaben"];
+const PACKLISTE_SCHULE = ["Laptop & Ladekabel", "Overnight Oats + Besteck", "Zmittag", "Mäppchen", "Bücher & Ordner", "Hausaufgaben"];
 const PACKLISTE_SPORT = ["Sportschuhe", "Sporthose", "Sport-T-Shirt"];
 
 // Ab welcher Uhrzeit (Dezimalstunden, z. B. 20.5 = 20:30) die Packliste
