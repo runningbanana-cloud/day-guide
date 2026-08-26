@@ -30,6 +30,7 @@ function init() {
   setupMenu();
   setupSwipeMenu();
   handleLeseErinnerung(phase);
+  handleHausaufgabenErinnerung(phase);
   setupFlaemmchen();
   updateFavicon();
   setInterval(updateFavicon, 30 * 60 * 1000); // alle 30 Min. neu zeichnen
@@ -1543,6 +1544,203 @@ function renderNews(items, erstesMal) {
 
 init();
 
+// --- "Schule"-Untermenü: Morgiger Stundenplan / Hausaufgaben / Lernplan.
+// Eigene kleine Liste-zu-Detail-Navigation innerhalb von detail-schule, analog
+// zum äusseren Menü-Muster (Liste <-> Detail mit "‹ Zurück"). Der äussere
+// "‹ Zurück"-Button geht immer bis zur Hauptliste zurück (wie überall sonst
+// auch) - dieser innere Zurück-Button geht nur auf die Schule-Liste zurück. ---
+function zeigeSchuleListe() {
+  document.getElementById("schule-liste").style.display = "block";
+  document.getElementById("schule-detail").style.display = "none";
+}
+
+function zeigeSchuleDetail(view) {
+  document.getElementById("schule-liste").style.display = "none";
+  document.getElementById("schule-detail").style.display = "block";
+  document.querySelectorAll("#schule-detail > div[id^='schule-']").forEach(d => d.style.display = "none");
+  document.getElementById(`schule-${view}`).style.display = "block";
+  if (view === "stundenplan") renderMorgenStundenplan();
+  if (view === "hausaufgaben") renderHausaufgabenListe();
+  if (view === "lernplan") renderLernplanListe();
+}
+
+function setupSchuleMenu() {
+  document.getElementById("schule-back").addEventListener("click", zeigeSchuleListe);
+  document.querySelectorAll("#schule-liste .menu-list-item").forEach(item => {
+    item.addEventListener("click", () => zeigeSchuleDetail(item.dataset.schuleView));
+  });
+
+  setupHausaufgabenManager();
+  setupLernplanManager();
+
+  // Schnellzugriff (nur Hausaufgaben, siehe Tims Wunsch): Menü öffnen und
+  // direkt ins Formular springen, ohne über die Schule-Liste zu gehen.
+  document.getElementById("hausaufgaben-shortcut-btn").addEventListener("click", () => {
+    document.getElementById("menu-overlay").classList.add("open");
+    document.getElementById("menu-list").style.display = "none";
+    document.getElementById("menu-detail").style.display = "block";
+    document.querySelectorAll("#menu-detail > div[id^='detail-']").forEach(d => d.style.display = "none");
+    document.getElementById("detail-schule").style.display = "block";
+    zeigeSchuleDetail("hausaufgaben");
+  });
+}
+
+// Alle im Stundenplan vorkommenden Fächer, für die Fach-Auswahl in den Formularen.
+function alleFaecher() {
+  return [...new Set(STUNDENPLAN.map(l => l.subject))].sort();
+}
+
+// Nächste anstehende Prüfung, deren Fach-Kürzel mit dem gewählten Fach beginnt.
+function naechstePruefungFuerFach(fach) {
+  const heute = heuteStr();
+  return PRUEFUNGEN
+    .filter(p => p.date >= heute && p.subject.startsWith(fach))
+    .sort((a, b) => a.date.localeCompare(b.date))[0] || null;
+}
+
+function formatDatumKurz(datumStr) {
+  const [j, m, t] = datumStr.split("-").map(Number);
+  return new Date(j, m - 1, t).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" });
+}
+
+function todoHinzufuegenMitFolder(text, folder, due) {
+  const todos = ladeTodos();
+  todos.push({ text, done: false, folder, due: due || null });
+  speichereTodos(todos);
+}
+
+// Hängt einen Zusatztext an die Kalender-Notiz des angegebenen Tages an
+// (bestehender Text bleibt erhalten, neue Zeile darunter).
+function kalenderNotizErgaenzen(datumStr, zusatzText) {
+  const notizen = ladeKalenderNotizen();
+  const bisher = notizen[datumStr] || "";
+  notizen[datumStr] = bisher ? `${bisher}\n${zusatzText}` : zusatzText;
+  speichereKalenderNotizen(notizen);
+}
+
+// --- Hausaufgabenmanager: Fach -> Seiten-von-bis ODER freie Notiz -> Datum.
+// Landet als To-Do (folder "hausaufgaben") und als Kalender-Notiz am Fälligkeitstag. ---
+let haArt = "seiten";
+
+function setupHausaufgabenManager() {
+  const fachSelect = document.getElementById("ha-fach");
+  fachSelect.innerHTML = alleFaecher().map(f => `<option value="${f}">${f}</option>`).join("");
+
+  document.querySelectorAll("#schule-hausaufgaben .listen-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      haArt = tab.dataset.art;
+      document.querySelectorAll("#schule-hausaufgaben .listen-tab").forEach(t => t.classList.toggle("aktiv", t === tab));
+      document.getElementById("ha-seiten-felder").style.display = haArt === "seiten" ? "flex" : "none";
+      document.getElementById("ha-notiz-text").style.display = haArt === "notiz" ? "block" : "none";
+    });
+  });
+
+  document.getElementById("ha-submit").addEventListener("click", () => {
+    const fach = fachSelect.value;
+    const datum = document.getElementById("ha-datum").value;
+    if (!fach || !datum) return;
+
+    let beschreibung;
+    if (haArt === "seiten") {
+      const von = document.getElementById("ha-seite-von").value;
+      const bis = document.getElementById("ha-seite-bis").value;
+      if (!von || !bis) return;
+      beschreibung = `${fach}: Seite ${von}–${bis}`;
+    } else {
+      const text = document.getElementById("ha-notiz-text").value.trim();
+      if (!text) return;
+      beschreibung = `${fach}: ${text}`;
+    }
+
+    todoHinzufuegenMitFolder(beschreibung, "hausaufgaben", datum);
+    kalenderNotizErgaenzen(datum, `Hausaufgabe ${beschreibung}`);
+
+    document.getElementById("ha-seite-von").value = "";
+    document.getElementById("ha-seite-bis").value = "";
+    document.getElementById("ha-notiz-text").value = "";
+    document.getElementById("ha-datum").value = "";
+    renderHausaufgabenListe();
+    renderTodo();
+  });
+}
+
+function renderHausaufgabenListe() {
+  const el = document.getElementById("hausaufgaben-liste");
+  const eintraege = ladeTodos().filter(t => t.folder === "hausaufgaben");
+  el.innerHTML = eintraege.length === 0
+    ? `<div class="empty">Keine Hausaufgaben eingetragen.</div>`
+    : eintraege.map(t => `
+      <div class="lesson-row">
+        <span>${t.text}${t.done ? " ✓" : ""}</span>
+        <span class="lesson-time">${t.due ? formatDatumKurz(t.due) : ""}</span>
+      </div>`).join("");
+}
+
+// --- Lernplanmanager: Fach -> was lernen -> Datum, zeigt zusätzlich die
+// nächste Prüfung in diesem Fach an. Landet als To-Do (folder "lernplan")
+// und als Kalender-Notiz. ---
+function setupLernplanManager() {
+  const fachSelect = document.getElementById("lp-fach");
+  fachSelect.innerHTML = alleFaecher().map(f => `<option value="${f}">${f}</option>`).join("");
+
+  function aktualisierePruefungsHinweis() {
+    const naechste = naechstePruefungFuerFach(fachSelect.value);
+    document.getElementById("lp-pruefung-hinweis").textContent = naechste
+      ? `Nächste Prüfung in diesem Fach: ${formatDatumKurz(naechste.date)} – ${naechste.subject}`
+      : "Keine anstehende Prüfung in diesem Fach gefunden.";
+  }
+  fachSelect.addEventListener("change", aktualisierePruefungsHinweis);
+  aktualisierePruefungsHinweis();
+
+  document.getElementById("lp-submit").addEventListener("click", () => {
+    const fach = fachSelect.value;
+    const was = document.getElementById("lp-text").value.trim();
+    const datum = document.getElementById("lp-datum").value;
+    if (!fach || !was || !datum) return;
+
+    const beschreibung = `${fach}: ${was}`;
+    todoHinzufuegenMitFolder(beschreibung, "lernplan", datum);
+    kalenderNotizErgaenzen(datum, `Lernplan ${beschreibung}`);
+
+    document.getElementById("lp-text").value = "";
+    document.getElementById("lp-datum").value = "";
+    renderLernplanListe();
+    renderTodo();
+  });
+}
+
+function renderLernplanListe() {
+  const el = document.getElementById("lernplan-liste");
+  const eintraege = ladeTodos().filter(t => t.folder === "lernplan");
+  el.innerHTML = eintraege.length === 0
+    ? `<div class="empty">Kein Lernplan eingetragen.</div>`
+    : eintraege.map(t => `
+      <div class="lesson-row">
+        <span>${t.text}${t.done ? " ✓" : ""}</span>
+        <span class="lesson-time">${t.due ? formatDatumKurz(t.due) : ""}</span>
+      </div>`).join("");
+}
+
+// --- Morgen-Erinnerung: fällige/überfällige, noch nicht erledigte Hausaufgaben.
+// Nur in Phase "vor" (siehe Tims Wunsch: "am Morgen davor sehen"). ---
+function handleHausaufgabenErinnerung(phase) {
+  const el = document.getElementById("section-hausaufgaben-erinnerung");
+  if (phase !== "vor") {
+    el.style.display = "none";
+    return;
+  }
+  const heute = heuteStr();
+  const offene = ladeTodos().filter(t => t.folder === "hausaufgaben" && !t.done && t.due && t.due <= heute);
+
+  if (offene.length === 0) {
+    el.style.display = "none";
+    return;
+  }
+  document.getElementById("hausaufgaben-erinnerung-content").innerHTML =
+    offene.map(t => `<div class="lesson-row"><span>${t.text}</span></div>`).join("");
+  el.style.display = "";
+}
+
 // --- Menü: Button öffnet Overlay mit morgigem Stundenplan ---
 function setupMenu() {
   const btn = document.getElementById("menu-btn");
@@ -1574,7 +1772,7 @@ function setupMenu() {
       detail.style.display = "block";
       document.querySelectorAll("#menu-detail > div[id^='detail-']").forEach(d => d.style.display = "none");
       document.getElementById(`detail-${view}`).style.display = "block";
-      if (view === "stundenplan") renderMorgenStundenplan();
+      if (view === "schule") zeigeSchuleListe();
       if (view === "wochenplan") renderWochenplan();
       if (view === "todo") renderTodo();
       if (view === "kalender") renderKalender();
@@ -1583,6 +1781,7 @@ function setupMenu() {
     });
   });
 
+  setupSchuleMenu();
   setupTodoInput();
   setupKalenderPopup();
   setupListenEditor();
@@ -1668,6 +1867,19 @@ function renderTodo() {
   const todos = ladeTodos();
   const notizText = (localStorage.getItem("dayguide_notiz") || "").trim();
 
+  // Index bezieht sich immer auf die Position im VOLLSTÄNDIGEN todos-Array
+  // (über Objekt-Referenz gefunden), auch wenn hier nur eine gefilterte
+  // Teilmenge (z. B. nur "hausaufgaben") gerade gerendert wird.
+  function zeileHtml(t) {
+    const i = todos.indexOf(t);
+    return `
+      <label class="checklist-row todo-row${t.done ? " done" : ""}">
+        <input type="checkbox" data-i="${i}" ${t.done ? "checked" : ""}>
+        <span>${t.text}</span>
+        <span class="todo-delete" data-i="${i}">✕</span>
+      </label>`;
+  }
+
   let html = "";
   if (notizText) {
     html += `
@@ -1677,14 +1889,24 @@ function renderTodo() {
       </div>`;
   }
 
-  html += todos.length === 0
-    ? `<div class="empty">Keine Aufgaben.</div>`
-    : todos.map((t, i) => `
-      <label class="checklist-row todo-row${t.done ? " done" : ""}">
-        <input type="checkbox" data-i="${i}" ${t.done ? "checked" : ""}>
-        <span>${t.text}</span>
-        <span class="todo-delete" data-i="${i}">✕</span>
-      </label>`).join("");
+  const allgemein = todos.filter(t => !t.folder);
+  const hausaufgaben = todos.filter(t => t.folder === "hausaufgaben");
+  const lernplan = todos.filter(t => t.folder === "lernplan");
+
+  if (todos.length === 0) {
+    html += `<div class="empty">Keine Aufgaben.</div>`;
+  } else {
+    html += allgemein.map(zeileHtml).join("");
+    if (hausaufgaben.length > 0 || lernplan.length > 0) {
+      html += `<div class="todo-ordner-label">Schule</div>`;
+      if (hausaufgaben.length > 0) {
+        html += `<div class="todo-unterordner-label">Hausaufgaben</div>` + hausaufgaben.map(zeileHtml).join("");
+      }
+      if (lernplan.length > 0) {
+        html += `<div class="todo-unterordner-label">Lernplan</div>` + lernplan.map(zeileHtml).join("");
+      }
+    }
+  }
 
   list.innerHTML = html;
 

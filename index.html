@@ -382,6 +382,18 @@
     z-index: 100;
   }
 
+  .hausaufgaben-shortcut-btn {
+    position: fixed;
+    top: max(20px, env(safe-area-inset-top));
+    right: 180px;
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    padding: 8px;
+    z-index: 100;
+  }
+
   .flaemmchen-btn {
     position: fixed;
     top: max(20px, env(safe-area-inset-top));
@@ -845,6 +857,50 @@
     align-items: center;
     justify-content: center;
   }
+  .todo-ordner-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin: 16px 0 4px;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+  .todo-unterordner-label {
+    font-size: 11px;
+    color: var(--text-mid);
+    margin: 10px 0 2px 10px;
+  }
+
+  /* Formulare (Hausaufgaben/Lernplan) */
+  .formular-feld {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    padding: 8px 0;
+    outline: none;
+    margin-bottom: 12px;
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 0;
+  }
+  .formular-row { display: flex; gap: 10px; }
+  .formular-row .formular-feld { flex: 1; }
+  .formular-submit {
+    padding: 12px;
+    border: 1px solid var(--text);
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  .formular-submit:active { background: var(--tile-bg-active); }
 
   /* Scroll-Enthüllung: Helligkeit/Position werden direkt per JS anhand
      der Scroll-Position gesetzt (siehe setupScrollReveal in app.js) */
@@ -874,7 +930,7 @@
       <div class="menu-close" id="menu-close">✕</div>
 
       <div id="menu-list">
-        <div class="menu-list-item" data-view="stundenplan">Morgiger Stundenplan</div>
+        <div class="menu-list-item" data-view="schule">Schule</div>
         <div class="menu-list-item" data-view="wochenplan">Wochenplan</div>
         <div class="menu-list-item" data-view="todo">To-Do</div>
         <div class="menu-list-item" data-view="kalender">Kalender</div>
@@ -886,9 +942,51 @@
       <div id="menu-detail" style="display:none;">
         <div class="menu-back" id="menu-back">‹ Zurück</div>
 
-        <div id="detail-stundenplan" style="display:none;">
-          <div class="section-label">Morgiger Stundenplan</div>
-          <div id="morgen-stundenplan-content" class="empty">–</div>
+        <div id="detail-schule" style="display:none;">
+          <div id="schule-liste">
+            <div class="section-label">Schule</div>
+            <div class="menu-list-item" data-schule-view="stundenplan">Morgiger Stundenplan</div>
+            <div class="menu-list-item" data-schule-view="hausaufgaben">Hausaufgaben</div>
+            <div class="menu-list-item" data-schule-view="lernplan">Lernplan</div>
+          </div>
+
+          <div id="schule-detail" style="display:none;">
+            <div class="menu-back" id="schule-back">‹ Zurück</div>
+
+            <div id="schule-stundenplan" style="display:none;">
+              <div class="section-label">Morgiger Stundenplan</div>
+              <div id="morgen-stundenplan-content" class="empty">–</div>
+            </div>
+
+            <div id="schule-hausaufgaben" style="display:none;">
+              <div class="section-label">Hausaufgaben</div>
+              <select class="formular-feld" id="ha-fach"></select>
+              <div class="listen-tabs">
+                <span class="listen-tab aktiv" data-art="seiten">Seiten</span>
+                <span class="listen-tab" data-art="notiz">Notiz</span>
+              </div>
+              <div class="formular-row" id="ha-seiten-felder">
+                <input type="number" class="formular-feld" id="ha-seite-von" placeholder="von Seite" min="1">
+                <input type="number" class="formular-feld" id="ha-seite-bis" placeholder="bis Seite" min="1">
+              </div>
+              <input type="text" class="formular-feld" id="ha-notiz-text" placeholder="Was ist zu tun?" maxlength="120" style="display:none;">
+              <input type="date" class="formular-feld" id="ha-datum">
+              <div class="formular-submit" id="ha-submit">Hinzufügen</div>
+              <div class="section-label">Eingetragen</div>
+              <div id="hausaufgaben-liste"></div>
+            </div>
+
+            <div id="schule-lernplan" style="display:none;">
+              <div class="section-label">Lernplan</div>
+              <select class="formular-feld" id="lp-fach"></select>
+              <div class="flaemmchen-hinweis" id="lp-pruefung-hinweis" style="margin-top:0;margin-bottom:12px;"></div>
+              <input type="text" class="formular-feld" id="lp-text" placeholder="Was willst du lernen?" maxlength="120">
+              <input type="date" class="formular-feld" id="lp-datum">
+              <div class="formular-submit" id="lp-submit">Hinzufügen</div>
+              <div class="section-label">Eingetragen</div>
+              <div id="lernplan-liste"></div>
+            </div>
+          </div>
         </div>
 
         <div id="detail-wochenplan" style="display:none;">
@@ -994,6 +1092,16 @@
   </div>
 
   <!-- Flämmchen: tägliche/wöchentliche/monatliche Herausforderung + Streak -->
+  <!-- Schnellzugriff: direkt ins Hausaufgaben-Formular, ohne über Schule zu gehen -->
+  <button class="hausaufgaben-shortcut-btn" id="hausaufgaben-shortcut-btn" aria-label="Hausaufgabe hinzufügen">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path>
+      <path d="M14 3v5h5"></path>
+      <line x1="9" y1="13" x2="15" y2="13"></line>
+      <line x1="9" y1="17" x2="12" y2="17"></line>
+    </svg>
+  </button>
+
   <button class="flaemmchen-btn" id="flaemmchen-btn" aria-label="Flämmchen">
     <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 2c-1.5 3 .3 4.7-1.3 7.3C9.3 11.6 7.5 13 7.5 16a4.5 4.5 0 0 0 9 0c0-1.2-.4-2.3-1-3.2.5 1.8-.4 3.1-1.8 3.1.9-2.2-.4-3.8-1.2-4.8-.3 1.6-1.7 2.2-1.4 3.7-1.1-1.1-1.5-3-.4-4.7C11.6 8.8 13.6 5.8 12 2z"></path>
@@ -1030,6 +1138,12 @@
         <span>Erledigt</span>
       </label>
     </div>
+  </div>
+
+  <!-- Offene Hausaufgaben: nur morgens (Phase "vor"), nur wenn fällig heute/überfällig -->
+  <div class="section" id="section-hausaufgaben-erinnerung" style="display:none;">
+    <div class="section-label">Offene Hausaufgaben</div>
+    <div id="hausaufgaben-erinnerung-content"></div>
   </div>
 
   <!-- Morgenroutine (nur vor Schulbeginn sichtbar) -->

@@ -147,6 +147,49 @@ Tim kann also entweder in der App selbst Punkte hinzufügen/löschen, oder weite
 data.js anpassen (wirkt sich aber nur aus, solange er die App-eigene Liste noch nicht
 einmal editiert hat, bzw. bis er `localStorage.removeItem("dayguide_liste_...")` löscht).
 
+## Schule-Untermenü, Hausaufgaben- & Lernplanmanager
+
+Der frühere Top-Level-Menüpunkt "Morgiger Stundenplan" ist jetzt in einem neuen
+Menüpunkt "Schule" verschachtelt, zusammen mit den zwei neuen Managern. Eigene kleine
+Liste-zu-Detail-Navigation INNERHALB von `detail-schule` (`zeigeSchuleListe()` /
+`zeigeSchuleDetail(view)` in app.js), mit einem eigenen inneren "‹ Zurück"
+(`#schule-back`), das nur auf die Schule-Liste zurückgeht - der äussere "‹ Zurück"
+geht wie überall sonst direkt zur Hauptliste.
+
+- **Hausaufgabenmanager** (`schule-hausaufgaben`): Fach wählen (`alleFaecher()` -
+  alle eindeutigen `subject`-Werte aus `STUNDENPLAN`) → Art wählen ("Seiten": zwei
+  Zahlenfelder von/bis, oder "Notiz": Freitext) → Datum → Hinzufügen. Landet als
+  To-Do mit `folder: "hausaufgaben"` und wird zusätzlich an die Kalender-Notiz des
+  Fälligkeitstags angehängt (`kalenderNotizErgaenzen()`, hängt an bestehenden Text an
+  statt ihn zu überschreiben).
+- **Lernplanmanager** (`schule-lernplan`): Fach wählen → Freitext "was lernen" →
+  Datum → Hinzufügen. Zeigt zusätzlich die nächste anstehende Prüfung in diesem Fach
+  an (`naechstePruefungFuerFach()`, matcht `PRUEFUNGEN` per `subject.startsWith(fach)`).
+  Landet als To-Do mit `folder: "lernplan"`, genau wie Hausaufgaben auch im Kalender.
+- **To-Do-Datenmodell erweitert:** `{text, done, folder, due}` - `folder` ist
+  `undefined`/`null` für normale, manuell eingetippte Aufgaben (unverändert wie
+  bisher), `"hausaufgaben"` oder `"lernplan"` für die beiden Manager. `renderTodo()`
+  gruppiert jetzt: normale Aufgaben zuerst (wie bisher, keine Überschrift), danach -
+  nur falls vorhanden - eine "Schule"-Überschrift mit "Hausaufgaben"/"Lernplan"
+  Unter-Überschriften. **Wichtig:** Checkbox/Löschen-Buttons referenzieren den Index
+  über `todos.indexOf(t)` (Objekt-Referenz), NICHT über die Position in der
+  gefilterten/gruppierten Teilliste - sonst würden Klicks in einer Gruppe die falschen
+  Einträge treffen.
+- **Schnellzugriff:** eigenes Icon oben rechts (`#hausaufgaben-shortcut-btn`,
+  `right: 180px`), springt direkt in `schule-hausaufgaben`, ohne über "Schule" zu
+  navigieren. **Bewusst NUR für Hausaufgaben, nicht für Lernplan** - Tim hat das
+  explizit so gewünscht ("den Lernplanmanager kannst du unterordnen").
+  Icon-Reihe von rechts nach links: Menü (20) → Notiz (60) → Sport-Hinweis (100,
+  nur bedingt sichtbar) → Flämmchen (140) → Hausaufgaben-Schnellzugriff (180).
+- **Morgen-Erinnerung** (`section-hausaufgaben-erinnerung`): zeigt in Phase `"vor"`
+  alle Hausaufgaben mit `done:false` und `due <= heute` (also fällig heute oder
+  überfällig) - reiner On-Page-Hinweis, kein Push (gleiches Prinzip wie
+  Wasser/Lese-Erinnerung vorher). Gilt bewusst NUR für Hausaufgaben, nicht für
+  Lernplan-Einträge (Tim hat das nur für Hausaufgaben gewünscht).
+- **Offene Fragen/spätere Verfeinerung:** was bei überfälligen Aufgaben passieren
+  soll (aktuell: bleiben einfach in der Erinnerung stehen, bis erledigt oder
+  gelöscht), ob Lernplan auch eine eigene Morgen-Erinnerung bekommen soll.
+
 ## Heller/Dunkler Modus
 
 Schalter in den Einstellungen (`#theme-toggle`, iOS-Switch-Optik wie Ferienmodus).
@@ -327,22 +370,12 @@ erzwungen (kurze Seiten haben sonst nicht genug Scroll-Weg für die letzten Sekt
 
 ## Bekannte offene Punkte / Rückstand (nach Priorität von Tim)
 
-1. **Hausaufgabenmanager** – laut Tim aktuell wichtiger als die Punkte darunter.
-   Nächster grosser Punkt nach dem aktuellen Batch. Von Tim konkret beschriebener Ablauf:
-   - Eigener Menüpunkt "Hausaufgabenmanager".
-   - Schritt 1: Fach auswählen (aus `STUNDENPLAN`, die Fächer/Kürzel sind schon da).
-   - Schritt 2: Art der Aufgabe auswählen - entweder "Seite X bis Seite Y fertig
-     arbeiten" (Zahlenfelder für Seitenzahlen) oder freie eigene Notiz.
-   - Schritt 3: Fällig bis wann (Datum).
-   - Nach Bestätigen: landet automatisch in der To-Do-Liste unter einer eigenen
-     "Hausaufgaben"-Kategorie/Abschnitt, UND wird im Kalender am Fälligkeitsdatum
-     eingetragen.
-   - Am Morgen (Phase "vor"?) soll sichtbar sein, ob noch offene/unerledigte
-     Hausaufgaben anstehen - Tim will das direkt sehen, ohne extra nachschauen zu
-     müssen.
-   - Noch nicht im Detail geklärt: was genau zählt als "erledigt" (Checkbox wie
-     To-Do?), wie lange bleibt eine erledigte Hausaufgabe sichtbar, was passiert bei
-     überfälligen (nicht bis Fälligkeitsdatum erledigten) Aufgaben.
+1. ~~**Hausaufgabenmanager** + **Lernplanmanager**~~ – gebaut und getestet, siehe
+   eigener Abschnitt "Schule-Untermenü, Hausaufgaben- & Lernplanmanager" unten.
+   **WICHTIG: Der Lernplan-Teil war zum Zeitpunkt des Bauens noch nicht committet/
+   gepusht** - Tim hatte explizit gesagt "das bitte noch nicht committen", während er
+   die Idee beschrieben hat. Bevor du hier weiterarbeitest: mit `git log`/`git status`
+   prüfen, ob das inzwischen committet wurde, und Tim fragen falls unklar.
 2. Bus-Berechnung: 10-Min-Vorlauf vor Unterrichtsbeginn einbauen (siehe oben)
 3. Sprache Deutsch/Englisch umschaltbar
 4. Tastenkombination am PC (**technisch nur möglich, wenn der Tab schon offen ist** –
