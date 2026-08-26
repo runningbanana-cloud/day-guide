@@ -95,36 +95,46 @@ aktuelle Phase auftauchen, bleiben unsichtbar (via `style.display = "none"`).
 Eigenes Icon oben rechts (Flammen-SVG, `right: 140px` in der Icon-Reihe), analog zum
 Notiz-Muster: Icon → Popup, plus eine Vorschau-Sektion auf der Hauptseite
 (`section-flaemmchen-preview`), die - wie Wetter/News - nur beim ersten Mal pro Tag
-offen ist und danach verschwindet, bis nur noch das Icon übrig bleibt.
+offen ist und danach verschwindet, bis nur noch das Icon übrig bleibt. Zusätzlich ein
+eigener Menü-Punkt "Flämmchen" (neben Kalender/Einstellungen) mit einer reinen
+Fakten-Übersicht (`renderFlaemmchenDetail()`) - **Abhaken selbst geht nur über das
+Popup/Icon**, damit keine zweiten Checkboxen mit doppelten IDs im Menü nötig sind.
 
-- **Aufgaben-Pools** in data.js: `FLAEMMCHEN_TAEGLICH`, `_WOECHENTLICH`, `_MONATLICH`
-  (frei von Tim erweiterbar, gemischt aus produktiv/sportlich/sozial/gesund - genau wie
-  er es wollte, z. B. "Kalt duschen", "4 Liter Wasser trinken", "100 Liegestütze").
+- **Aufgaben-Pools** in data.js: `FLAEMMCHEN_TAEGLICH` (~30), `_WOECHENTLICH` (~12),
+  `_MONATLICH` (~8) - frei von Tim erweiterbar, gemischt aus produktiv/sportlich/
+  sozial/gesund. Bewusst grosszügig bemessen: Tim wollte ursprünglich "nie wiederholende"
+  Aufgaben, was ohne Cloud/KI-Anbindung nicht 100%ig geht (feste Liste muss sich
+  irgendwann wiederholen) - als Kompromiss deutlich grössere Listen, damit die
+  Wiederholung erst nach Wochen/Monaten überhaupt auffällt. Wasser-Trinken ist bewusst
+  nur noch EIN möglicher Eintrag in `FLAEMMCHEN_TAEGLICH", nicht mehr ein eigenes
+  Wasser-Feature (das gab es kurz, wurde auf Tims Wunsch wieder entfernt).
 - **Auswahl deterministisch, kein Zufall/Speicher nötig:** `heutigeFlaemmchenAufgabe()`
   nutzt Tag-im-Jahr modulo Listenlänge, `wochenFlaemmchenAufgabe()` Woche-im-Jahr,
   `monatsFlaemmchenAufgabe()` den Monat. Bleibt beim Neuladen also stabil gleich.
-- **Streak:** `dayguide_flaemmchen_streak` (Zahl) + `dayguide_flaemmchen_letzter_tag`
-  (Datum der letzten erledigten Aufgabe). Beim Abhaken: War der letzte Tag gestern ->
-  Streak +1, sonst (Lücke) -> zurück auf 1. Abhaken rückgängig machen funktioniert nur
-  am selben Tag (dann -1, kein rückwirkendes Mehrtage-Undo - bewusst einfach gehalten).
-  `flaemmchenAngezeigterStreak()` zeigt eine bereits gerissene Streak sofort als 0 an,
-  auch bevor das nächste Abhaken den gespeicherten Wert offiziell zurücksetzt.
+- **Drei unabhängige Streaks** (Tag/Woche/Monat), über eine generische Konfiguration
+  `FLAEMMCHEN_EINHEITEN` in app.js (nicht dreimal denselben Code). Pro Einheit
+  gespeichert: aktuelle Streak, `letzter<Einheit>` (zuletzt erledigter Schlüssel, z. B.
+  Wochenschlüssel `"2026-W34"`), Rekord (höchste je erreichte Streak) und Gesamtzahl
+  erledigt. War die letzte Erledigung genau die Einheit davor -> Streak +1, sonst
+  (Lücke) -> zurück auf 1. Abhaken rückgängig machen funktioniert nur innerhalb
+  derselben Einheit (kein rückwirkendes Mehrperioden-Undo - bewusst einfach gehalten).
+  `flaemmchenAngezeigterStreak(einheit)` zeigt eine bereits gerissene Streak sofort als
+  0 an, auch bevor das nächste Abhaken den gespeicherten Wert offiziell zurücksetzt.
 - Reine On-Page-Sache, kein Cloud-Sync, kein Push - Tim wollte hier bewusst erstmal
   keine grosse Detailtiefe bei der Wiederholungslogik ("nicht so detailliert wie Apple
   Erinnerungen").
 
-## Wasser- & Abend-Erinnerung
+## Abend-Erinnerung
 
-Beides sind reine On-Page-Hinweise (kein Push/Service Worker - bewusst so entschieden,
-passt zu "kein Backend"), unabhängig vom `wrap.append()`-Phasensystem gesteuert, analog
-zu Sport-Hinweis/Notiz-Post-it: bleiben an ihrer festen Stelle im HTML, werden nur per
+Reiner On-Page-Hinweis (kein Push/Service Worker - bewusst so entschieden, passt zu
+"kein Backend"), unabhängig vom `wrap.append()`-Phasensystem gesteuert, analog zu
+Sport-Hinweis/Notiz-Post-it: bleibt an fester Stelle im HTML, wird nur per
 `style.display` ein-/ausgeblendet.
 
-- **Wasser (`section-wasser`):** Zähler pro Tag, Tippen auf "+" erhöht
-  (`dayguide_wasser_<Datum>` in localStorage). Sichtbar ab `WASSER_ERINNERUNG_AB_STUNDE`
-  (data.js, aktuell 11 Uhr), unabhängig von der Tagesphase - auch am Wochenende/im
-  Ferienmodus relevant, da es nichts mit der Schule zu tun hat. War schon mal gebaut,
-  wurde kurz danach wieder entfernt, jetzt mit Zeit-Gate erneut eingebaut.
+(Es gab hier zwischenzeitlich auch eine eigene Wasser-Erinnerungs-Sektion
+(`section-wasser`) - wieder entfernt, siehe "Flämmchen" oben: Wasser-Trinken ist jetzt
+einfach einer der möglichen Flämmchen-Aufgaben, kein eigenes Element mehr.)
+
 - **Abend-Lese-Erinnerung (`section-lese-erinnerung`):** reiner Text-Hinweis
   ("Zeit, das Handy wegzulegen und zu lesen." - Text in `LESE_ERINNERUNG_TEXT`, data.js),
   sichtbar nur in Phase `"abend"` UND ab `LESE_ERINNERUNG_AB_STUNDE` (aktuell 22.5 = 22:30).
@@ -244,6 +254,9 @@ hinein-/hinausschiebt.
   Kalender-Notiz (Punkt oben am Tag, `dayguide_kalender_notizen` in localStorage, Format
   `{"JJJJ-MM-TT": "Text"}`). Klick auf einen Tag öffnet ein Popup zum Schreiben (analog
   zur Haupt-Notiz: Auto-Speichern beim Blur des Textfelds, ✕ löscht den Eintrag).
+- **Flämmchen:** reine Fakten-Übersicht (Streak/Rekord/Gesamtzahl je Tag/Woche/Monat),
+  siehe eigener Abschnitt "Flämmchen" unten. Abhaken geht bewusst nur über das
+  Popup/Icon oben rechts, nicht hier.
 - **Einstellungen:** Ferienmodus-Schalter, jetzt als iOS-artiger Switch (`.ios-switch`,
   CSS-only mit verstecktem `<input type=checkbox>` + gestylten Sibling-Spans) statt
   normaler Checkbox mit Text.

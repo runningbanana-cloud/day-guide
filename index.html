@@ -269,31 +269,6 @@
     resize: none;
   }
 
-  /* Wasser-Erinnerung */
-  .wasser-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .wasser-row span:first-child {
-    font-family: var(--font-display);
-    font-size: 20px;
-  }
-  .wasser-plus {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--text);
-    border-radius: 50%;
-    font-size: 20px;
-    cursor: pointer;
-    user-select: none;
-    flex-shrink: 0;
-  }
-  .wasser-plus:active { background: #1a1a1a; }
-
   /* Abend-Erinnerung: Handy weglegen */
   .lese-erinnerung-text {
     font-family: var(--font-display);
@@ -401,15 +376,43 @@
     padding: 14px 16px;
     z-index: 150;
   }
-  .flaemmchen-aufgabe { margin-top: 12px; }
+  .flaemmchen-aufgabe {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  .flaemmchen-aufgabe:first-of-type { border-top: none; padding-top: 0; }
   .flaemmchen-label {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-dim);
     margin-bottom: 2px;
+    display: flex;
+    gap: 6px;
   }
-  .flaemmchen-checkbox-row { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .flaemmchen-label span {
+    text-transform: none;
+    letter-spacing: normal;
+    font-variant-numeric: tabular-nums;
+  }
+  .flaemmchen-checkbox-row { margin-top: 6px; font-size: 13px; }
+
+  .flaemmchen-fakten-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .flaemmchen-fakten-row:last-of-type { border-bottom: none; }
+  .flaemmchen-fakten-row span:first-child { color: var(--text-dim); }
+  .flaemmchen-fakten-row span:last-child { font-variant-numeric: tabular-nums; }
+  .flaemmchen-hinweis {
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
 
   .flaemmchen-preview-text {
     font-family: var(--font-display);
@@ -792,6 +795,7 @@
         <div class="menu-list-item" data-view="wochenplan">Wochenplan</div>
         <div class="menu-list-item" data-view="todo">To-Do</div>
         <div class="menu-list-item" data-view="kalender">Kalender</div>
+        <div class="menu-list-item" data-view="flaemmchen">Flämmchen</div>
         <div class="menu-list-item" data-view="einstellungen">Einstellungen</div>
       </div>
 
@@ -833,6 +837,11 @@
           </div>
         </div>
 
+        <div id="detail-flaemmchen" style="display:none;">
+          <div class="section-label">Flämmchen</div>
+          <div id="flaemmchen-menu-content"></div>
+        </div>
+
         <div id="detail-einstellungen" style="display:none;">
           <div class="section-label">Einstellungen</div>
           <label class="switch-row">
@@ -866,14 +875,6 @@
 
   <div class="sport-hinweis-ecke" id="sport-hinweis" style="display:none;"></div>
 
-  <!-- Wasser-Erinnerung, ab Mittag sichtbar (siehe WASSER_ERINNERUNG_AB_STUNDE) -->
-  <div class="section" id="section-wasser" style="display:none;">
-    <div class="section-label">Wasser getrunken?</div>
-    <div class="wasser-row">
-      <span id="wasser-count">0 / 8</span>
-      <span class="wasser-plus" id="wasser-plus">+</span>
-    </div>
-  </div>
 
   <!-- Merkzettel: klicken zum Bearbeiten, Überschrift zeigt den Inhalt -->
   <button class="notiz-btn" id="notiz-btn" aria-label="Notiz">✎</button>
@@ -900,21 +901,29 @@
       <span class="notiz-loeschen" id="flaemmchen-close">✕</span>
     </div>
     <div class="flaemmchen-aufgabe">
-      <div class="flaemmchen-label">Heute</div>
+      <div class="flaemmchen-label">Heute <span id="flaemmchen-tag-streak"></span></div>
       <div id="flaemmchen-heute-text"></div>
+      <label class="checklist-row flaemmchen-checkbox-row">
+        <input type="checkbox" id="flaemmchen-tag-checkbox">
+        <span>Erledigt</span>
+      </label>
     </div>
     <div class="flaemmchen-aufgabe">
-      <div class="flaemmchen-label">Diese Woche</div>
+      <div class="flaemmchen-label">Diese Woche <span id="flaemmchen-woche-streak"></span></div>
       <div id="flaemmchen-woche-text"></div>
+      <label class="checklist-row flaemmchen-checkbox-row">
+        <input type="checkbox" id="flaemmchen-woche-checkbox">
+        <span>Erledigt</span>
+      </label>
     </div>
     <div class="flaemmchen-aufgabe">
-      <div class="flaemmchen-label">Diesen Monat</div>
+      <div class="flaemmchen-label">Diesen Monat <span id="flaemmchen-monat-streak"></span></div>
       <div id="flaemmchen-monat-text"></div>
+      <label class="checklist-row flaemmchen-checkbox-row">
+        <input type="checkbox" id="flaemmchen-monat-checkbox">
+        <span>Erledigt</span>
+      </label>
     </div>
-    <label class="checklist-row flaemmchen-checkbox-row">
-      <input type="checkbox" id="flaemmchen-erledigt-checkbox">
-      <span>Heutige Aufgabe erledigt</span>
-    </label>
   </div>
 
   <!-- Morgenroutine (nur vor Schulbeginn sichtbar) -->

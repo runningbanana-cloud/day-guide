@@ -29,7 +29,6 @@ function init() {
   setupScrollReveal();
   setupMenu();
   setupSwipeMenu();
-  setupWasser();
   handleLeseErinnerung(phase);
   setupFlaemmchen();
   updateFavicon();
@@ -202,35 +201,6 @@ function updatePostit(section, textEl, text) {
   }
 }
 
-// --- Wasser-Erinnerung: Zähler pro Tag, tippen zum Erhöhen ---
-// Erscheint ab WASSER_ERINNERUNG_AB_STUNDE (data.js), unabhängig von der
-// Tagesphase - auch am Wochenende/im Ferienmodus relevant.
-function setupWasser() {
-  const key = `dayguide_wasser_${heuteStr()}`;
-  const section = document.getElementById("section-wasser");
-  const countEl = document.getElementById("wasser-count");
-  const plusBtn = document.getElementById("wasser-plus");
-
-  function istSichtbarZeit() {
-    const now = new Date();
-    const stunden = now.getHours() + now.getMinutes() / 60;
-    return stunden >= WASSER_ERINNERUNG_AB_STUNDE;
-  }
-
-  function update() {
-    const val = parseInt(localStorage.getItem(key) || "0", 10);
-    countEl.textContent = `${val} / ${WASSER_ZIEL}`;
-    section.style.display = istSichtbarZeit() ? "" : "none";
-  }
-  update();
-
-  plusBtn.addEventListener("click", () => {
-    const val = parseInt(localStorage.getItem(key) || "0", 10) + 1;
-    localStorage.setItem(key, String(val));
-    update();
-  });
-}
-
 // --- Abend-Erinnerung: ab LESE_ERINNERUNG_AB_STUNDE (data.js), nur in der
 // Phase "abend" - passt zusammen mit Packliste/Abendroutine, die dann schon
 // erledigt sein sollten. ---
@@ -266,6 +236,12 @@ function tagDesJahres(d) {
   const start = new Date(d.getFullYear(), 0, 1);
   return Math.floor((d - start) / 86400000);
 }
+function wochenSchluessel(d = new Date()) {
+  return `${d.getFullYear()}-W${Math.floor(tagDesJahres(d) / 7)}`;
+}
+function monatSchluessel(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 function heutigeFlaemmchenAufgabe() {
   return FLAEMMCHEN_TAEGLICH[tagDesJahres(new Date()) % FLAEMMCHEN_TAEGLICH.length];
@@ -278,16 +254,89 @@ function monatsFlaemmchenAufgabe() {
   return FLAEMMCHEN_MONATLICH[new Date().getMonth() % FLAEMMCHEN_MONATLICH.length];
 }
 
-// Angezeigter Streak: gilt nur als "noch am Leben", wenn zuletzt heute oder
-// gestern erledigt wurde - sonst als gerissen anzeigen (0), auch wenn der
-// gespeicherte Wert erst beim nächsten Abhaken wirklich zurückgesetzt wird.
-function flaemmchenAngezeigterStreak() {
-  const streak = parseInt(localStorage.getItem("dayguide_flaemmchen_streak") || "0", 10);
-  const letzterTag = localStorage.getItem("dayguide_flaemmchen_letzter_tag") || "";
-  const heute = heuteStr();
-  const gestern = datumStrVorTagen(1);
-  if (letzterTag !== heute && letzterTag !== gestern) return 0;
+// Drei unabhängige Streaks (Tag/Woche/Monat) über dieselbe generische Logik:
+// aktuellerSchluessel() = "das hier", vorherigerSchluessel() = "die Einheit davor".
+// War der zuletzt erledigte Schlüssel genau die Einheit davor -> Streak fortsetzen,
+// sonst (Lücke) -> zurück auf 1.
+const FLAEMMCHEN_EINHEITEN = {
+  tag: {
+    streakKey: "dayguide_flaemmchen_streak",
+    letzterKey: "dayguide_flaemmchen_letzter_tag",
+    rekordKey: "dayguide_flaemmchen_tag_rekord",
+    gesamtKey: "dayguide_flaemmchen_tag_gesamt",
+    aktuellerSchluessel: () => heuteStr(),
+    vorherigerSchluessel: () => datumStrVorTagen(1),
+  },
+  woche: {
+    streakKey: "dayguide_flaemmchen_woche_streak",
+    letzterKey: "dayguide_flaemmchen_letzte_woche",
+    rekordKey: "dayguide_flaemmchen_woche_rekord",
+    gesamtKey: "dayguide_flaemmchen_woche_gesamt",
+    aktuellerSchluessel: () => wochenSchluessel(),
+    vorherigerSchluessel: () => {
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      return wochenSchluessel(d);
+    },
+  },
+  monat: {
+    streakKey: "dayguide_flaemmchen_monat_streak",
+    letzterKey: "dayguide_flaemmchen_letzter_monat",
+    rekordKey: "dayguide_flaemmchen_monat_rekord",
+    gesamtKey: "dayguide_flaemmchen_monat_gesamt",
+    aktuellerSchluessel: () => monatSchluessel(),
+    vorherigerSchluessel: () => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      return monatSchluessel(d);
+    },
+  },
+};
+
+// Angezeigter Streak: gilt nur als "noch am Leben", wenn zuletzt in der aktuellen
+// oder der direkt vorherigen Einheit erledigt wurde - sonst als gerissen (0)
+// anzeigen, auch wenn der gespeicherte Wert erst beim nächsten Abhaken offiziell
+// zurückgesetzt wird.
+function flaemmchenAngezeigterStreak(einheit) {
+  const cfg = FLAEMMCHEN_EINHEITEN[einheit];
+  const streak = parseInt(localStorage.getItem(cfg.streakKey) || "0", 10);
+  const letzter = localStorage.getItem(cfg.letzterKey) || "";
+  if (letzter !== cfg.aktuellerSchluessel() && letzter !== cfg.vorherigerSchluessel()) return 0;
   return streak;
+}
+
+function flaemmchenUmschalten(einheit, erledigt) {
+  const cfg = FLAEMMCHEN_EINHEITEN[einheit];
+  const aktuell = cfg.aktuellerSchluessel();
+  let streak = parseInt(localStorage.getItem(cfg.streakKey) || "0", 10);
+  let gesamt = parseInt(localStorage.getItem(cfg.gesamtKey) || "0", 10);
+  const rekord = parseInt(localStorage.getItem(cfg.rekordKey) || "0", 10);
+  const letzter = localStorage.getItem(cfg.letzterKey) || "";
+
+  if (erledigt) {
+    if (letzter !== aktuell) {
+      streak = letzter === cfg.vorherigerSchluessel() ? streak + 1 : 1;
+      localStorage.setItem(cfg.streakKey, String(streak));
+      localStorage.setItem(cfg.letzterKey, aktuell);
+      localStorage.setItem(cfg.gesamtKey, String(gesamt + 1));
+      if (streak > rekord) localStorage.setItem(cfg.rekordKey, String(streak));
+    }
+  } else if (letzter === aktuell) {
+    // Rückgängig machen (nur möglich, solange man's noch in derselben Einheit umstösst)
+    streak = Math.max(0, streak - 1);
+    localStorage.setItem(cfg.streakKey, String(streak));
+    localStorage.setItem(cfg.letzterKey, "");
+    localStorage.setItem(cfg.gesamtKey, String(Math.max(0, gesamt - 1)));
+  }
+}
+
+function oeffneFlaemmchenPopup() {
+  document.getElementById("flaemmchen-popup").style.display = "block";
+  localStorage.setItem(`dayguide_flaemmchen_gesehen_${heuteStr()}`, "1");
+  document.getElementById("section-flaemmchen-preview").style.display = "none";
+}
+function schliesseFlaemmchenPopup() {
+  document.getElementById("flaemmchen-popup").style.display = "none";
 }
 
 function setupFlaemmchen() {
@@ -296,82 +345,104 @@ function setupFlaemmchen() {
   const popup = document.getElementById("flaemmchen-popup");
   const closeBtn = document.getElementById("flaemmchen-close");
   const streakText = document.getElementById("flaemmchen-streak-text");
-  const checkbox = document.getElementById("flaemmchen-erledigt-checkbox");
   const previewSection = document.getElementById("section-flaemmchen-preview");
   const previewText = document.getElementById("flaemmchen-preview-text");
   const previewStreak = document.getElementById("flaemmchen-preview-streak");
 
-  const heute = heuteStr();
-  const heutigeAufgabe = heutigeFlaemmchenAufgabe();
+  const aufgabenText = { tag: heutigeFlaemmchenAufgabe(), woche: wochenFlaemmchenAufgabe(), monat: monatsFlaemmchenAufgabe() };
+  document.getElementById("flaemmchen-heute-text").textContent = aufgabenText.tag;
+  document.getElementById("flaemmchen-woche-text").textContent = aufgabenText.woche;
+  document.getElementById("flaemmchen-monat-text").textContent = aufgabenText.monat;
 
-  document.getElementById("flaemmchen-heute-text").textContent = heutigeAufgabe;
-  document.getElementById("flaemmchen-woche-text").textContent = wochenFlaemmchenAufgabe();
-  document.getElementById("flaemmchen-monat-text").textContent = monatsFlaemmchenAufgabe();
+  const checkboxen = {
+    tag: document.getElementById("flaemmchen-tag-checkbox"),
+    woche: document.getElementById("flaemmchen-woche-checkbox"),
+    monat: document.getElementById("flaemmchen-monat-checkbox"),
+  };
+  const streakLabels = {
+    tag: document.getElementById("flaemmchen-tag-streak"),
+    woche: document.getElementById("flaemmchen-woche-streak"),
+    monat: document.getElementById("flaemmchen-monat-streak"),
+  };
 
   function aktualisiereAnzeige() {
-    const streak = flaemmchenAngezeigterStreak();
-    badge.textContent = streak > 0 ? String(streak) : "";
-    streakText.textContent = streak === 1 ? "1 Tag Streak" : `${streak} Tage Streak`;
-    previewStreak.textContent = streak > 0 ? ` · ${streak} Tage Streak` : "";
+    ["tag", "woche", "monat"].forEach(einheit => {
+      const streak = flaemmchenAngezeigterStreak(einheit);
+      streakLabels[einheit].textContent = streak > 0 ? `· ${streak}` : "";
+    });
+    const tagesStreak = flaemmchenAngezeigterStreak("tag");
+    badge.textContent = tagesStreak > 0 ? String(tagesStreak) : "";
+    streakText.textContent = tagesStreak === 1 ? "1 Tag Streak" : `${tagesStreak} Tage Streak`;
+    previewStreak.textContent = tagesStreak > 0 ? ` · ${tagesStreak} Tage Streak` : "";
   }
 
-  checkbox.checked = localStorage.getItem("dayguide_flaemmchen_letzter_tag") === heute;
+  ["tag", "woche", "monat"].forEach(einheit => {
+    const cfg = FLAEMMCHEN_EINHEITEN[einheit];
+    checkboxen[einheit].checked = localStorage.getItem(cfg.letzterKey) === cfg.aktuellerSchluessel();
+    checkboxen[einheit].addEventListener("change", () => {
+      flaemmchenUmschalten(einheit, checkboxen[einheit].checked);
+      aktualisiereAnzeige();
+    });
+  });
   aktualisiereAnzeige();
 
   // Vorschau auf der Hauptseite: einmal pro Tag offen, danach nur noch das Icon
   // (gleiches Prinzip wie Wetter/News, die sich nach dem ersten Anschauen reduzieren)
-  const gesehenKey = `dayguide_flaemmchen_gesehen_${heute}`;
+  const gesehenKey = `dayguide_flaemmchen_gesehen_${heuteStr()}`;
   if (!localStorage.getItem(gesehenKey)) {
-    previewText.textContent = heutigeAufgabe;
+    previewText.textContent = aufgabenText.tag;
     previewSection.style.display = "";
   } else {
     previewSection.style.display = "none";
   }
 
-  function oeffnen() {
-    popup.style.display = "block";
-    localStorage.setItem(gesehenKey, "1");
-    previewSection.style.display = "none";
-  }
-  function schliessen() {
-    popup.style.display = "none";
-  }
-
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
-    popup.style.display === "block" ? schliessen() : oeffnen();
+    popup.style.display === "block" ? schliesseFlaemmchenPopup() : oeffneFlaemmchenPopup();
   });
-  previewSection.addEventListener("click", oeffnen);
+  previewSection.addEventListener("click", oeffneFlaemmchenPopup);
   closeBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    schliessen();
+    schliesseFlaemmchenPopup();
   });
   document.addEventListener("click", (e) => {
     if (popup.style.display !== "none" && !popup.contains(e.target) && e.target !== btn) {
-      schliessen();
+      schliesseFlaemmchenPopup();
     }
   });
+}
 
-  checkbox.addEventListener("change", () => {
-    const heuteJetzt = heuteStr(); // erneut lesen, falls über Mitternacht offen gelassen
-    let streak = parseInt(localStorage.getItem("dayguide_flaemmchen_streak") || "0", 10);
-    const letzterTag = localStorage.getItem("dayguide_flaemmchen_letzter_tag") || "";
+// --- Menü-Ansicht "Flämmchen": Übersicht + Fakten (aktuelle Streak, Rekord,
+// insgesamt erledigt je Einheit). Abhaken selbst passiert weiterhin nur im
+// Popup (Flammen-Icon oben rechts) - hier bewusst nur eine Übersicht, damit
+// keine zweiten Checkboxen mit denselben IDs entstehen. ---
+function renderFlaemmchenDetail() {
+  const aufgabenText = { tag: heutigeFlaemmchenAufgabe(), woche: wochenFlaemmchenAufgabe(), monat: monatsFlaemmchenAufgabe() };
+  const labels = { tag: "Heute", woche: "Diese Woche", monat: "Diesen Monat" };
 
-    if (checkbox.checked) {
-      if (letzterTag !== heuteJetzt) {
-        const gestern = datumStrVorTagen(1);
-        streak = letzterTag === gestern ? streak + 1 : 1;
-        localStorage.setItem("dayguide_flaemmchen_streak", String(streak));
-        localStorage.setItem("dayguide_flaemmchen_letzter_tag", heuteJetzt);
-      }
-    } else if (letzterTag === heuteJetzt) {
-      // Rückgängig machen (nur möglich, solange man's noch am selben Tag umstösst)
-      streak = Math.max(0, streak - 1);
-      localStorage.setItem("dayguide_flaemmchen_streak", String(streak));
-      localStorage.setItem("dayguide_flaemmchen_letzter_tag", "");
-    }
-    aktualisiereAnzeige();
-  });
+  const html = ["tag", "woche", "monat"].map(einheit => {
+    const cfg = FLAEMMCHEN_EINHEITEN[einheit];
+    const streak = flaemmchenAngezeigterStreak(einheit);
+    const rekord = parseInt(localStorage.getItem(cfg.rekordKey) || "0", 10);
+    const gesamt = parseInt(localStorage.getItem(cfg.gesamtKey) || "0", 10);
+    return `
+      <div class="flaemmchen-aufgabe">
+        <div class="flaemmchen-label">${labels[einheit]}</div>
+        <div>${aufgabenText[einheit]}</div>
+        <div class="flaemmchen-fakten-row">
+          <span>Aktuelle Streak</span><span>${streak}</span>
+        </div>
+        <div class="flaemmchen-fakten-row">
+          <span>Rekord</span><span>${rekord}</span>
+        </div>
+        <div class="flaemmchen-fakten-row">
+          <span>Insgesamt erledigt</span><span>${gesamt}</span>
+        </div>
+      </div>`;
+  }).join("");
+
+  document.getElementById("flaemmchen-menu-content").innerHTML = html + `
+    <div class="flaemmchen-hinweis">Zum Abhaken oben rechts aufs Flammen-Symbol tippen.</div>`;
 }
 
 function updateNotizDisplay(display, text) {
@@ -1414,6 +1485,7 @@ function setupMenu() {
       if (view === "wochenplan") renderWochenplan();
       if (view === "todo") renderTodo();
       if (view === "kalender") renderKalender();
+      if (view === "flaemmchen") renderFlaemmchenDetail();
     });
   });
 

@@ -41,11 +41,6 @@ const ABENDROUTINE = ["Kleider für morgen bereitlegen", "Gesicht waschen", "Zä
 // abends überhaupt erscheint.
 const PACKLISTE_AB_STUNDE = 20.5;
 
-// --- Wasser-Erinnerung (Zähler pro Tag, tippen zum Erhöhen) ---
-// Ab welcher Uhrzeit die Erinnerung überhaupt erscheint (11 = 11:00, "Mittag").
-const WASSER_ERINNERUNG_AB_STUNDE = 11;
-const WASSER_ZIEL = 8;
-
 // --- Abend-Erinnerung: Handy weglegen und lesen ---
 // Ab welcher Uhrzeit (Dezimalstunden, z. B. 22.5 = 22:30) der Hinweis erscheint.
 const LESE_ERINNERUNG_AB_STUNDE = 22.5;
@@ -70,6 +65,27 @@ const FLAEMMCHEN_TAEGLICH = [
   "Jemandem helfen, ohne gefragt zu werden",
   "Etwas Neues gelernt (Wort, Fakt, Fähigkeit) und aufgeschrieben",
   "Frühstück statt Handy als Erstes am Morgen",
+  "50 Kniebeugen",
+  "5 Minuten dehnen/stretchen",
+  "Ein Glas Wasser direkt nach dem Aufstehen trinken",
+  "Handy für eine Stunde in einen anderen Raum legen",
+  "Bett machen, bevor du das Haus verlässt",
+  "Jemandem schreiben, an den/die du länger nicht gedacht hast",
+  "Ein neues Wort in einer Fremdsprache lernen",
+  "10 Minuten aufräumen, ohne dass es jemand verlangt",
+  "Treppe statt Lift nehmen, wo immer möglich",
+  "Eine Mahlzeit bewusst ohne Handy essen",
+  "Jemandem aktiv zuhören, ohne zu unterbrechen",
+  "20 Minuten an einem Hobby arbeiten",
+  "Ein Ziel für morgen aufschreiben",
+  "Einen Tag ohne Energydrink/Kaffee auskommen",
+  "Eine Sache aufschreiben, für die du dankbar bist",
+  "Mindestens 20 Minuten draussen sein",
+  "Hausaufgaben ohne Ablenkung in einem Rutsch erledigen",
+  "Ein Zimmer/Gerät geputzt, das schon länger fällig war",
+  "Handy erst nach dem Anziehen morgens anschauen",
+  "Ein Problem, das du aufschiebst, heute konkret angehen",
+  "Notizen/Ordner für die Schule sortieren",
 ];
 const FLAEMMCHEN_WOECHENTLICH = [
   "Ein neues Rezept kochen",
@@ -77,12 +93,23 @@ const FLAEMMCHEN_WOECHENTLICH = [
   "Einen Artikel/Podcast zu einem Thema ausserhalb der Schule konsumieren",
   "Schreibtisch/Zimmer einmal gründlich aufräumen",
   "Einen Tag komplett ohne Social Media",
+  "Jemandem eine Freude machen, ohne Anlass",
+  "Eine Sporteinheit mehr als sonst",
+  "Einen Ausflug/Spaziergang an einen neuen Ort machen",
+  "Wäsche/Zimmer/Schultasche einmal komplett sortieren",
+  "Ein Rückstand (Hausaufgabe, Nachricht, Termin) endgültig erledigen",
+  "Ein Gespräch mit jemandem aus der Familie ohne Handy führen",
+  "Etwas Kreatives machen (zeichnen, schreiben, musizieren)",
 ];
 const FLAEMMCHEN_MONATLICH = [
   "Ein Buch zu Ende lesen",
   "Ein neues Hobby/eine neue Fähigkeit ausprobieren",
   "Eine alte Freundschaft/einen alten Kontakt wieder auffrischen",
   "Einen ganzen Tag bewusst offline verbringen",
+  "Ein persönliches Ziel für den nächsten Monat aufschreiben",
+  "Einen Ort besuchen, an dem du noch nie warst",
+  "Zimmer/Sachen grundlegend ausmisten",
+  "Jemandem einen Brief oder eine längere Nachricht schreiben",
 ];
 
 // Aktuell grob auf Kirchberg SG gesetzt. Falls das nicht stimmt,
