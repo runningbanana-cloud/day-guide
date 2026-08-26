@@ -330,6 +330,14 @@ function flaemmchenUmschalten(einheit, erledigt) {
   }
 }
 
+// Gefüllte Flamme (kein Strich-Icon), Grösse variabel - genutzt für die
+// Kachel-Ansicht im Menü (gross für Tag, kleiner für Woche/Monat).
+function flammeSvg(groesse) {
+  return `<svg width="${groesse}" height="${groesse}" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2c-1.5 3 .3 4.7-1.3 7.3C9.3 11.6 7.5 13 7.5 16a4.5 4.5 0 0 0 9 0c0-1.2-.4-2.3-1-3.2.5 1.8-.4 3.1-1.8 3.1.9-2.2-.4-3.8-1.2-4.8-.3 1.6-1.7 2.2-1.4 3.7-1.1-1.1-1.5-3-.4-4.7C11.6 8.8 13.6 5.8 12 2z"></path>
+  </svg>`;
+}
+
 function oeffneFlaemmchenPopup() {
   document.getElementById("flaemmchen-popup").style.display = "block";
   localStorage.setItem(`dayguide_flaemmchen_gesehen_${heuteStr()}`, "1");
@@ -413,36 +421,41 @@ function setupFlaemmchen() {
 }
 
 // --- Menü-Ansicht "Flämmchen": Übersicht + Fakten (aktuelle Streak, Rekord,
-// insgesamt erledigt je Einheit). Abhaken selbst passiert weiterhin nur im
-// Popup (Flammen-Icon oben rechts) - hier bewusst nur eine Übersicht, damit
-// keine zweiten Checkboxen mit denselben IDs entstehen. ---
+// insgesamt erledigt je Einheit) als Kacheln - eine grosse oben für den Tag,
+// zwei kleinere darunter nebeneinander für Woche/Monat. Abhaken selbst
+// passiert weiterhin nur im Popup (Flammen-Icon oben rechts) - hier bewusst
+// nur eine Übersicht, damit keine zweiten Checkboxen mit denselben IDs
+// entstehen. ---
+function flaemmchenKachelHtml(einheit, label, groesse) {
+  const cfg = FLAEMMCHEN_EINHEITEN[einheit];
+  const aufgabenText = { tag: heutigeFlaemmchenAufgabe, woche: wochenFlaemmchenAufgabe, monat: monatsFlaemmchenAufgabe }[einheit]();
+  const streak = flaemmchenAngezeigterStreak(einheit);
+  const rekord = parseInt(localStorage.getItem(cfg.rekordKey) || "0", 10);
+  const gesamt = parseInt(localStorage.getItem(cfg.gesamtKey) || "0", 10);
+
+  return `
+    <div class="flaemmchen-kachel">
+      <div class="flaemmchen-kachel-icon">${flammeSvg(groesse)}</div>
+      <div class="flaemmchen-label">${label}</div>
+      <div class="flaemmchen-kachel-text">${aufgabenText}</div>
+      <div class="flaemmchen-fakten-row"><span>Aktuelle Streak</span><span>${streak}</span></div>
+      <div class="flaemmchen-fakten-row"><span>Rekord</span><span>${rekord}</span></div>
+      <div class="flaemmchen-fakten-row"><span>Insgesamt erledigt</span><span>${gesamt}</span></div>
+    </div>`;
+}
+
 function renderFlaemmchenDetail() {
-  const aufgabenText = { tag: heutigeFlaemmchenAufgabe(), woche: wochenFlaemmchenAufgabe(), monat: monatsFlaemmchenAufgabe() };
-  const labels = { tag: "Heute", woche: "Diese Woche", monat: "Diesen Monat" };
-
-  const html = ["tag", "woche", "monat"].map(einheit => {
-    const cfg = FLAEMMCHEN_EINHEITEN[einheit];
-    const streak = flaemmchenAngezeigterStreak(einheit);
-    const rekord = parseInt(localStorage.getItem(cfg.rekordKey) || "0", 10);
-    const gesamt = parseInt(localStorage.getItem(cfg.gesamtKey) || "0", 10);
-    return `
-      <div class="flaemmchen-aufgabe">
-        <div class="flaemmchen-label">${labels[einheit]}</div>
-        <div>${aufgabenText[einheit]}</div>
-        <div class="flaemmchen-fakten-row">
-          <span>Aktuelle Streak</span><span>${streak}</span>
-        </div>
-        <div class="flaemmchen-fakten-row">
-          <span>Rekord</span><span>${rekord}</span>
-        </div>
-        <div class="flaemmchen-fakten-row">
-          <span>Insgesamt erledigt</span><span>${gesamt}</span>
-        </div>
-      </div>`;
-  }).join("");
-
-  document.getElementById("flaemmchen-menu-content").innerHTML = html + `
+  const html = `
+    <div class="flaemmchen-kacheln">
+      ${flaemmchenKachelHtml("tag", "Heute", 40)}
+      <div class="flaemmchen-kachel-reihe">
+        ${flaemmchenKachelHtml("woche", "Diese Woche", 22)}
+        ${flaemmchenKachelHtml("monat", "Diesen Monat", 22)}
+      </div>
+    </div>
     <div class="flaemmchen-hinweis">Zum Abhaken oben rechts aufs Flammen-Symbol tippen.</div>`;
+
+  document.getElementById("flaemmchen-menu-content").innerHTML = html;
 }
 
 function updateNotizDisplay(display, text) {
@@ -1161,8 +1174,86 @@ function renderChecklist(containerId, storageKeyPrefix, items, onChange) {
   });
 }
 
+// --- Listen-Editor: Morgenroutine/Packliste/Abendroutine direkt in der App
+// bearbeitbar (nicht mehr nur über data.js). data.js bleibt die Werkseinstellung
+// - beim allerersten Aufruf wird sie nach localStorage kopiert, danach zählt
+// nur noch, was dort gespeichert ist. ---
+const LISTEN_KONFIG = {
+  morgenroutine: { key: "dayguide_liste_morgenroutine", standard: MORGENROUTINE, label: "Morgenroutine" },
+  packliste_schule: { key: "dayguide_liste_packliste_schule", standard: PACKLISTE_SCHULE, label: "Packliste (Schule)" },
+  packliste_sport: { key: "dayguide_liste_packliste_sport", standard: PACKLISTE_SPORT, label: "Packliste (Sport)" },
+  abendroutine: { key: "dayguide_liste_abendroutine", standard: ABENDROUTINE, label: "Abendroutine" },
+};
+
+function ladeListe(cfg) {
+  const raw = localStorage.getItem(cfg.key);
+  if (!raw) return [...cfg.standard];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [...cfg.standard];
+  } catch (e) {
+    return [...cfg.standard];
+  }
+}
+function speichereListe(cfg, arr) {
+  localStorage.setItem(cfg.key, JSON.stringify(arr));
+}
+
+let aktuelleListe = "morgenroutine";
+
+function renderListenEditor() {
+  const cfg = LISTEN_KONFIG[aktuelleListe];
+  const items = ladeListe(cfg);
+  const content = document.getElementById("listen-content");
+
+  document.querySelectorAll(".listen-tab").forEach(tab => {
+    tab.classList.toggle("aktiv", tab.dataset.liste === aktuelleListe);
+  });
+
+  content.innerHTML = items.length === 0
+    ? `<div class="empty">Keine Einträge.</div>`
+    : items.map((text, i) => `
+      <label class="checklist-row todo-row">
+        <span style="flex:1;">${text}</span>
+        <span class="todo-delete" data-i="${i}">✕</span>
+      </label>`).join("");
+
+  content.querySelectorAll(".todo-delete").forEach(el => {
+    el.addEventListener("click", () => {
+      const arr = ladeListe(cfg);
+      arr.splice(Number(el.dataset.i), 1);
+      speichereListe(cfg, arr);
+      renderListenEditor();
+    });
+  });
+}
+
+function setupListenEditor() {
+  document.querySelectorAll(".listen-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      aktuelleListe = tab.dataset.liste;
+      renderListenEditor();
+    });
+  });
+
+  const input = document.getElementById("listen-input");
+  const btn = document.getElementById("listen-add-btn");
+  function hinzufuegen() {
+    const text = input.value.trim();
+    if (!text) return;
+    const cfg = LISTEN_KONFIG[aktuelleListe];
+    const arr = ladeListe(cfg);
+    arr.push(text);
+    speichereListe(cfg, arr);
+    input.value = "";
+    renderListenEditor();
+  }
+  btn.addEventListener("click", hinzufuegen);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") hinzufuegen(); });
+}
+
 function renderMorgenroutine() {
-  renderChecklist("morgenroutine-content", "dayguide_morgenroutine", MORGENROUTINE);
+  renderChecklist("morgenroutine-content", "dayguide_morgenroutine", ladeListe(LISTEN_KONFIG.morgenroutine));
 
   const weekday = new Date().getDay();
   const zeit1 = ETAPPE1_FAHRPLAN[weekday];
@@ -1195,9 +1286,9 @@ function renderPackliste() {
   morgen.setDate(morgen.getDate() + 1);
   const morgenWeekday = morgen.getDay();
 
-  let items = [...PACKLISTE_SCHULE];
+  let items = ladeListe(LISTEN_KONFIG.packliste_schule);
   if (istSchulsporttag(morgenWeekday) || istPersoenlicherSporttag(morgenWeekday)) {
-    items = items.concat(PACKLISTE_SPORT);
+    items = items.concat(ladeListe(LISTEN_KONFIG.packliste_sport));
   }
 
   function pruefeVollstaendig() {
@@ -1211,13 +1302,15 @@ function renderPackliste() {
 }
 
 function renderAbendroutine() {
+  const items = ladeListe(LISTEN_KONFIG.abendroutine);
+
   function pruefeVollstaendig() {
     const heute = heuteStr();
-    const alleErledigt = ABENDROUTINE.every((_, i) => localStorage.getItem(`dayguide_abendroutine_${heute}_${i}`) === "1");
+    const alleErledigt = items.every((_, i) => localStorage.getItem(`dayguide_abendroutine_${heute}_${i}`) === "1");
     document.getElementById("section-abendroutine").style.display = alleErledigt ? "none" : "";
   }
 
-  renderChecklist("abendroutine-content", "dayguide_abendroutine", ABENDROUTINE, pruefeVollstaendig);
+  renderChecklist("abendroutine-content", "dayguide_abendroutine", items, pruefeVollstaendig);
   pruefeVollstaendig();
 }
 function istSchulsporttag(weekday) {
@@ -1486,17 +1579,38 @@ function setupMenu() {
       if (view === "todo") renderTodo();
       if (view === "kalender") renderKalender();
       if (view === "flaemmchen") renderFlaemmchenDetail();
+      if (view === "listen") renderListenEditor();
     });
   });
 
   setupTodoInput();
   setupKalenderPopup();
+  setupListenEditor();
 
   const ferienToggle = document.getElementById("ferienmodus-toggle");
   ferienToggle.checked = localStorage.getItem("dayguide_ferienmodus") === "1";
   ferienToggle.addEventListener("change", () => {
     localStorage.setItem("dayguide_ferienmodus", ferienToggle.checked ? "1" : "0");
     location.reload();
+  });
+
+  setupTheme();
+}
+
+// --- Heller/Dunkler Modus: Standard ist dunkel (kein Attribut nötig dafür).
+// Wird zusätzlich ganz früh im <head> per Inline-Script gesetzt, damit beim
+// Laden nicht kurz der dunkle Look aufblitzt, bevor auf hell umgeschaltet wird. ---
+function setupTheme() {
+  const toggle = document.getElementById("theme-toggle");
+  const metaTheme = document.getElementById("theme-color-meta");
+  const hell = localStorage.getItem("dayguide_theme") === "light";
+  toggle.checked = hell;
+
+  toggle.addEventListener("change", () => {
+    const neuHell = toggle.checked;
+    document.documentElement.setAttribute("data-theme", neuHell ? "light" : "dark");
+    localStorage.setItem("dayguide_theme", neuHell ? "light" : "dark");
+    if (metaTheme) metaTheme.setAttribute("content", neuHell ? "#ffffff" : "#000000");
   });
 }
 

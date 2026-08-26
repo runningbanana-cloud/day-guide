@@ -123,6 +123,46 @@ Popup/Icon**, damit keine zweiten Checkboxen mit doppelten IDs im Menü nötig s
 - Reine On-Page-Sache, kein Cloud-Sync, kein Push - Tim wollte hier bewusst erstmal
   keine grosse Detailtiefe bei der Wiederholungslogik ("nicht so detailliert wie Apple
   Erinnerungen").
+- **Icon:** gefüllte Flamme (`flammeSvg(groesse)` in app.js, `fill="currentColor"`,
+  kein Strich-Icon mehr), Grösse variabel - oben rechts nur die kleine Tages-Flamme
+  (bewusst NUR diese, nicht Woche/Monat - das wollte Tim explizit so).
+- **Kachel-Layout im Menü** (`renderFlaemmchenDetail()`): eine grosse Kachel oben für
+  den Tag, darunter zwei kleinere nebeneinander für Woche/Monat
+  (`.flaemmchen-kacheln`/`.flaemmchen-kachel-reihe`). Das Popup (Icon oben rechts)
+  bleibt bewusst die einfache gestapelte Liste - zu schmal für Kacheln nebeneinander.
+- Aufgaben-Listen nochmals deutlich vergrössert (30/12/8 -> 54/24/16), damit
+  Wiederholungen noch seltener auffallen.
+
+## Editierbare Listen (Morgenroutine/Packliste/Abendroutine)
+
+Eigener Menüpunkt "Listen" mit Tabs zum Umschalten zwischen den vier Listen
+(Morgenroutine, Packliste Schule, Packliste Sport, Abendroutine) und derselben
+Add/Delete-Optik wie die To-Do-Liste. `LISTEN_KONFIG` in app.js verknüpft jede Liste
+mit ihrem localStorage-Key und dem data.js-Standardwert. `ladeListe(cfg)` liefert die
+gespeicherte Version, oder - beim allerersten Aufruf, wenn noch nichts gespeichert
+ist - eine Kopie des data.js-Standards. **Wichtig:** `MORGENROUTINE`/`PACKLISTE_SCHULE`/
+`PACKLISTE_SPORT`/`ABENDROUTINE` in data.js sind dadurch nur noch die *Werkseinstellung*
+beim allerersten Laden - danach zählt, was in `dayguide_liste_*` in localStorage steht.
+Tim kann also entweder in der App selbst Punkte hinzufügen/löschen, oder weiterhin
+data.js anpassen (wirkt sich aber nur aus, solange er die App-eigene Liste noch nicht
+einmal editiert hat, bzw. bis er `localStorage.removeItem("dayguide_liste_...")` löscht).
+
+## Heller/Dunkler Modus
+
+Schalter in den Einstellungen (`#theme-toggle`, iOS-Switch-Optik wie Ferienmodus).
+Standard ist dunkel (kein Attribut nötig dafür - alle Farben sind CSS-Variablen im
+Basis-`:root`, siehe index.html). Heller Modus setzt `data-theme="light"` auf
+`<html>`, das überschreibt die Variablen in einem `:root[data-theme="light"]`-Block
+(u. a. `--bg`, `--text`, `--text-dim`, `--line`, `--popup-bg`, `--overlay-bg`,
+`--tile-bg`, `--switch-thumb*`). Gespeichert in `localStorage.dayguide_theme`
+("light"/"dark"). **Wichtig gegen Flackern:** ein kleines synchrones Inline-`<script>`
+ganz früh im `<head>` (vor dem `<style>`-Block) setzt das Attribut schon vor dem ersten
+Rendern, falls "light" gespeichert ist - sonst würde beim Laden kurz der dunkle Look
+aufblitzen, bevor `setupTheme()` in app.js (läuft erst nach DOM-Aufbau) umschaltet.
+Aktualisiert zusätzlich das `<meta name="theme-color">` (Browser-Chrome-Farbe auf
+Mobile) passend mit. **Falls neue Farben hinzukommen:** immer als CSS-Variable in
+beiden `:root`-Blöcken definieren, nie als hartkodierten Hex-Wert - sonst bricht der
+helle Modus an der Stelle.
 
 ## Abend-Erinnerung
 
@@ -147,6 +187,19 @@ unsichtbare Tap-Fläche (`padding` + kompensierendes negatives `margin`, damit d
 optisch an derselben Stelle bleibt) - Tim hat die alten, zu kleinen Tap-Flächen öfter
 verfehlt. Neue "✕"/"Schliessen"-Buttons sollten densselben Trick verwenden statt nur
 `padding: 0 4px` o.ä.
+
+## iOS-Zoom-Bug bei Texteingaben (behoben)
+
+Tim berichtete: nach dem Schreiben einer Notiz (Textfeld verlassen) blieb der
+Bildschirm auf dem iPhone reingezoomt, musste manuell wieder rausgezoomt werden.
+Ursache: iOS Safari zoomt beim Fokussieren eines Text-Inputs/Textarea automatisch
+rein, wenn dessen `font-size` unter 16px liegt (Standard-Verhalten, kein Bug in
+Arcday selbst, aber durch die 14px-Felder ausgelöst) - und zoomt beim Verlassen
+nicht immer zuverlässig zurück. Behoben, indem `.notiz-edit`, `#kalender-popup-text`
+und `.todo-add-row input` auf `font-size: 16px` gesetzt wurden. **Bei neuen
+Text-Inputs/Textareas IMMER mindestens 16px verwenden**, sonst tritt derselbe Bug
+wieder auf. (Absichtlich NICHT über `user-scalable=no` im Viewport-Meta gelöst -
+das würde Pinch-Zoom für die ganze Seite deaktivieren, schlecht für Zugänglichkeit.)
 
 ## Wichtiger Bug, der heute behoben wurde
 
@@ -257,6 +310,8 @@ hinein-/hinausschiebt.
 - **Flämmchen:** reine Fakten-Übersicht (Streak/Rekord/Gesamtzahl je Tag/Woche/Monat),
   siehe eigener Abschnitt "Flämmchen" unten. Abhaken geht bewusst nur über das
   Popup/Icon oben rechts, nicht hier.
+- **Listen:** Editor für Morgenroutine/Packliste/Abendroutine, siehe eigener Abschnitt
+  "Editierbare Listen" unten.
 - **Einstellungen:** Ferienmodus-Schalter, jetzt als iOS-artiger Switch (`.ios-switch`,
   CSS-only mit verstecktem `<input type=checkbox>` + gestylten Sibling-Spans) statt
   normaler Checkbox mit Text.
@@ -272,8 +327,22 @@ erzwungen (kurze Seiten haben sonst nicht genug Scroll-Weg für die letzten Sekt
 
 ## Bekannte offene Punkte / Rückstand (nach Priorität von Tim)
 
-1. **Hausaufgabenmanager** – laut Tim aktuell wichtiger als die Punkte darunter. Noch
-   nicht geplant/gescoped.
+1. **Hausaufgabenmanager** – laut Tim aktuell wichtiger als die Punkte darunter.
+   Nächster grosser Punkt nach dem aktuellen Batch. Von Tim konkret beschriebener Ablauf:
+   - Eigener Menüpunkt "Hausaufgabenmanager".
+   - Schritt 1: Fach auswählen (aus `STUNDENPLAN`, die Fächer/Kürzel sind schon da).
+   - Schritt 2: Art der Aufgabe auswählen - entweder "Seite X bis Seite Y fertig
+     arbeiten" (Zahlenfelder für Seitenzahlen) oder freie eigene Notiz.
+   - Schritt 3: Fällig bis wann (Datum).
+   - Nach Bestätigen: landet automatisch in der To-Do-Liste unter einer eigenen
+     "Hausaufgaben"-Kategorie/Abschnitt, UND wird im Kalender am Fälligkeitsdatum
+     eingetragen.
+   - Am Morgen (Phase "vor"?) soll sichtbar sein, ob noch offene/unerledigte
+     Hausaufgaben anstehen - Tim will das direkt sehen, ohne extra nachschauen zu
+     müssen.
+   - Noch nicht im Detail geklärt: was genau zählt als "erledigt" (Checkbox wie
+     To-Do?), wie lange bleibt eine erledigte Hausaufgabe sichtbar, was passiert bei
+     überfälligen (nicht bis Fälligkeitsdatum erledigten) Aufgaben.
 2. Bus-Berechnung: 10-Min-Vorlauf vor Unterrichtsbeginn einbauen (siehe oben)
 3. Sprache Deutsch/Englisch umschaltbar
 4. Tastenkombination am PC (**technisch nur möglich, wenn der Tab schon offen ist** –
@@ -285,9 +354,13 @@ erzwungen (kurze Seiten haben sonst nicht genug Scroll-Weg für die letzten Sekt
 8. Notiz geräteübergreifend synchronisieren (Handy ↔ PC) – bewusst zurückgestellt.
    Direkt über Obsidian technisch nicht machbar (siehe Abschnitt "Notiz" oben), müsste ein
    kleiner Cloud-Speicher-Dienst sein. Tim will das später nochmal angehen.
-9. "Flämmchen"-Idee – Tim hat nur angedeutet, dass es evtl. mit der Wasser-Erinnerung
-   zusammenhängt, wollte es aber erst später genauer erklären. Noch nichts gebaut, nichts
-   angenommen.
+9. ~~"Flämmchen"-Idee~~ – erledigt, siehe eigener Abschnitt oben.
+10. **Homescreen-Kacheln neu anordnen** – Tim möchte weg vom reinen Hoch/Runter-Scrollen,
+    stattdessen ein bisschen wie ein Raster/Grid ("verwinkelt"), z. B. Wetter neben statt
+    unter der Begrüssung, in etwa da wo früher die Wasser-Sektion war. Wichtig: soll
+    dabei übersichtlich/sortiert bleiben, kein Chaos. **Wartet auf einen Screenshot von
+    Tim** (hat er angeboten zu schicken) - noch NICHT umsetzen ohne den gesehen zu haben,
+    zu grosses Risiko für eine Layout-Änderung, die nicht passt.
 
 ## Wichtige Vorlieben von Tim (Chat-Kontext, evtl. weniger relevant für Claude Code)
 
