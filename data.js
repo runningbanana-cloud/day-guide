@@ -50,8 +50,7 @@ const MEAL_PREP = {
   6: "Meal Prep vorbereiten",
   0: "Meal Prep vorbereiten",
 };
-// --- Wasser-Erinnerung (ganztägig sichtbar, Zähler pro Tag) ---
-const WASSER_ZIEL = 8;
+
 // --- Standort für die Wetter-Abfrage ---
 const WEATHER_LOCATION = {
   lat: 47.3833,

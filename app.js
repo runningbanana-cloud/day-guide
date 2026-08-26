@@ -28,7 +28,6 @@ function init() {
   loadNews();
   setupScrollReveal();
   setupMenu();
-  setupWasser();
   updateFavicon();
   setInterval(updateFavicon, 30 * 60 * 1000); // alle 30 Min. neu zeichnen
 }
@@ -195,25 +194,6 @@ function updatePostit(section, textEl, text) {
   } else {
     section.style.display = "none";
   }
-}
-
-// --- Wasser-Erinnerung: Zähler pro Tag, tippen zum Erhöhen ---
-function setupWasser() {
-  const key = `dayguide_wasser_${heuteStr()}`;
-  const countEl = document.getElementById("wasser-count");
-  const plusBtn = document.getElementById("wasser-plus");
-
-  function update() {
-    const val = parseInt(localStorage.getItem(key) || "0", 10);
-    countEl.textContent = `${val} / ${WASSER_ZIEL}`;
-  }
-  update();
-
-  plusBtn.addEventListener("click", () => {
-    const val = parseInt(localStorage.getItem(key) || "0", 10) + 1;
-    localStorage.setItem(key, String(val));
-    update();
-  });
 }
 
 function updateNotizDisplay(display, text) {

@@ -359,8 +359,12 @@
     color: var(--text-dim);
     cursor: pointer;
     font-size: 13px;
-    padding: 2px;
+    padding: 14px;
+    margin: -14px -14px -14px 0;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .menu-overlay {
@@ -418,30 +422,6 @@
   }
   .wochentag-label:first-child { margin-top: 0; }
   .meal-prep-row { color: var(--text); }
-
-  /* Wasser-Erinnerung */
-  .wasser-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .wasser-row span:first-child {
-    font-family: var(--font-display);
-    font-size: 20px;
-  }
-  .wasser-plus {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--text);
-    border-radius: 50%;
-    font-size: 20px;
-    cursor: pointer;
-    user-select: none;
-  }
-  .wasser-plus:active { background: #1a1a1a; }
 
   /* Kalender */
   .kalender-grid {
@@ -604,15 +584,6 @@
   <!-- Notiz als Post-it, nur sichtbar wenn wirklich was drinsteht -->
   <div class="section" id="section-notiz-postit" style="display:none;">
     <div class="notiz-postit-text" id="notiz-postit-text"></div>
-  </div>
-
-  <!-- Wasser-Erinnerung, den ganzen Tag sichtbar -->
-  <div class="section" id="section-wasser">
-    <div class="section-label">Wasser</div>
-    <div class="wasser-row">
-      <span id="wasser-count">0 / 8</span>
-      <span class="wasser-plus" id="wasser-plus">+</span>
-    </div>
   </div>
 
   <div class="sport-hinweis-ecke" id="sport-hinweis" style="display:none;"></div>
