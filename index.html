@@ -269,6 +269,38 @@
     resize: none;
   }
 
+  /* Wasser-Erinnerung */
+  .wasser-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .wasser-row span:first-child {
+    font-family: var(--font-display);
+    font-size: 20px;
+  }
+  .wasser-plus {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--text);
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .wasser-plus:active { background: #1a1a1a; }
+
+  /* Abend-Erinnerung: Handy weglegen */
+  .lese-erinnerung-text {
+    font-family: var(--font-display);
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
   /* Regenradar */
   .radar-container { margin-top: 10px; }
   #radar-map {
@@ -338,6 +370,61 @@
     z-index: 100;
   }
 
+  .flaemmchen-btn {
+    position: fixed;
+    top: max(20px, env(safe-area-inset-top));
+    right: 140px;
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    padding: 8px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  #flaemmchen-streak-badge {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-mid);
+  }
+
+  .flaemmchen-popup {
+    position: fixed;
+    top: max(56px, calc(env(safe-area-inset-top) + 56px));
+    right: 20px;
+    width: 260px;
+    background: #0a0a0a;
+    border: 1px solid var(--text);
+    border-radius: 14px;
+    padding: 14px 16px;
+    z-index: 150;
+  }
+  .flaemmchen-aufgabe { margin-top: 12px; }
+  .flaemmchen-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+  }
+  .flaemmchen-checkbox-row { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+  .flaemmchen-preview-text {
+    font-family: var(--font-display);
+    font-size: 18px;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+  #flaemmchen-preview-streak {
+    font-family: var(--font-body);
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
   .notiz-popup {
     position: fixed;
     top: max(56px, calc(env(safe-area-inset-top) + 56px));
@@ -368,7 +455,7 @@
   }
 
   .menu-overlay {
-    display: none;
+    display: flex;
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.92);
@@ -377,8 +464,14 @@
     justify-content: center;
     padding: 80px 22px;
     overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    pointer-events: none;
   }
-  .menu-overlay.open { display: flex; }
+  .menu-overlay.open {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
 
   .menu-panel {
     width: 100%;
@@ -388,12 +481,12 @@
 
   .menu-close {
     position: absolute;
-    top: -50px;
-    right: 0;
+    top: -56px;
+    right: -6px;
     font-size: 20px;
     cursor: pointer;
     color: var(--text);
-    padding: 8px;
+    padding: 14px;
   }
 
   .menu-list-item {
@@ -424,6 +517,20 @@
   .meal-prep-row { color: var(--text); }
 
   /* Kalender */
+  .kalender-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .kalender-nav {
+    color: var(--text-dim);
+    font-size: 20px;
+    line-height: 1;
+    padding: 6px 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .kalender-nav:active { color: var(--text); }
   .kalender-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -444,8 +551,9 @@
     font-size: 13px;
     border-radius: 8px;
     position: relative;
+    cursor: pointer;
   }
-  .kalender-tag.leer { visibility: hidden; }
+  .kalender-tag.leer { visibility: hidden; cursor: default; }
   .kalender-tag.heute { border: 1px solid var(--text); }
   .kalender-tag.pruefung::after {
     content: "";
@@ -455,6 +563,92 @@
     height: 4px;
     border-radius: 50%;
     background: var(--amber);
+  }
+  .kalender-tag.notiz-vorhanden::before {
+    content: "";
+    position: absolute;
+    top: 4px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text-mid);
+  }
+  .kalender-popup {
+    margin-top: 14px;
+    background: #0a0a0a;
+    border: 1px solid var(--text);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .kalender-popup-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  #kalender-popup-text {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    padding: 6px 0;
+    outline: none;
+    resize: none;
+  }
+
+  /* Ferienmodus-Switch (Apple-Stil) */
+  .switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .ios-switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 27px;
+    flex-shrink: 0;
+  }
+  .ios-switch input {
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    margin: 0;
+    cursor: pointer;
+    z-index: 2;
+  }
+  .ios-switch-track {
+    position: absolute;
+    inset: 0;
+    background: var(--line);
+    border-radius: 999px;
+    transition: background 0.25s ease;
+  }
+  .ios-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 23px;
+    height: 23px;
+    border-radius: 50%;
+    background: #ffffff;
+    transition: transform 0.25s ease;
+  }
+  .ios-switch input:checked + .ios-switch-track { background: var(--text); }
+  .ios-switch input:checked + .ios-switch-track .ios-switch-thumb {
+    transform: translateX(19px);
+    background: #000000;
   }
 
   /* Checklisten (Morgenroutine, Packliste, Einstellungen) */
@@ -467,13 +661,67 @@
     cursor: pointer;
   }
   .checklist-row input[type="checkbox"] {
-    width: 17px;
-    height: 17px;
-    accent-color: var(--text);
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    border: 1.5px solid var(--text);
+    border-radius: 50%;
+    background: transparent;
     cursor: pointer;
     flex-shrink: 0;
+    position: relative;
+  }
+  .checklist-row input[type="checkbox"]::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--text);
+    border-width: 0 1.6px 1.6px 0;
+    transform: rotate(45deg);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .checklist-row input[type="checkbox"]:checked::after {
+    opacity: 1;
   }
   .checklist-row.done span { text-decoration: line-through; color: var(--text-dim); }
+
+  /* Abgehakte Punkte verschwinden sanft, statt abrupt umzuspringen
+     (nur bei echten Checklisten, nicht bei der To-Do-Liste) */
+  .checklist-collapse .checklist-row {
+    max-height: 60px;
+    overflow: hidden;
+    transition: opacity 0.35s ease, transform 0.35s ease,
+      max-height 0.35s ease, padding 0.35s ease, margin 0.35s ease;
+  }
+  .checklist-collapse .checklist-row.done {
+    opacity: 0;
+    transform: translateX(10px);
+    max-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Notiz oben angeheftet in der To-Do-Liste */
+  .todo-notiz-row {
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 4px;
+    padding-bottom: 12px;
+    align-items: flex-start;
+  }
+  .todo-notiz-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
 
   /* To-Do */
   .todo-add-row {
@@ -501,12 +749,22 @@
   }
   .todo-row { justify-content: space-between; }
   .todo-row span:first-of-type + span { flex: 1; margin-left: 0; }
-  .todo-delete { color: var(--text-dim); cursor: pointer; padding: 0 4px; }
+  .todo-delete {
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 14px;
+    margin: -14px -14px -14px 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
   /* Scroll-Enthüllung: Helligkeit/Position werden direkt per JS anhand
      der Scroll-Position gesetzt (siehe setupScrollReveal in app.js) */
   @media (prefers-reduced-motion: reduce) {
     .section { opacity: 1 !important; transform: none !important; filter: none !important; }
+    .menu-overlay { transition: none !important; }
   }
 
   /* Kompakte Darstellung für Sektionen, die gerade weniger wichtig sind */
@@ -560,15 +818,29 @@
         </div>
 
         <div id="detail-kalender" style="display:none;">
-          <div class="section-label" id="kalender-monat-label">Kalender</div>
+          <div class="kalender-header">
+            <span class="kalender-nav" id="kalender-prev">‹</span>
+            <div class="section-label" id="kalender-monat-label">Kalender</div>
+            <span class="kalender-nav" id="kalender-next">›</span>
+          </div>
           <div id="kalender-content"></div>
+          <div class="kalender-popup" id="kalender-popup" style="display:none;">
+            <div class="kalender-popup-head">
+              <span id="kalender-popup-datum"></span>
+              <span class="notiz-loeschen" id="kalender-popup-loeschen">✕</span>
+            </div>
+            <textarea id="kalender-popup-text" maxlength="200" rows="3" placeholder="Notiz für diesen Tag"></textarea>
+          </div>
         </div>
 
         <div id="detail-einstellungen" style="display:none;">
           <div class="section-label">Einstellungen</div>
-          <label class="checklist-row">
-            <input type="checkbox" id="ferienmodus-toggle">
+          <label class="switch-row">
             <span>Ferienmodus (Schule ausblenden)</span>
+            <span class="ios-switch">
+              <input type="checkbox" id="ferienmodus-toggle">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </span>
           </label>
         </div>
       </div>
@@ -586,7 +858,22 @@
     <div class="notiz-postit-text" id="notiz-postit-text"></div>
   </div>
 
+  <!-- Flämmchen-Vorschau: heutige Aufgabe, nur bis einmal angeschaut -->
+  <div class="section" id="section-flaemmchen-preview" style="display:none;">
+    <div class="section-label">Heutige Aufgabe<span id="flaemmchen-preview-streak"></span></div>
+    <div id="flaemmchen-preview-text" class="flaemmchen-preview-text"></div>
+  </div>
+
   <div class="sport-hinweis-ecke" id="sport-hinweis" style="display:none;"></div>
+
+  <!-- Wasser-Erinnerung, ab Mittag sichtbar (siehe WASSER_ERINNERUNG_AB_STUNDE) -->
+  <div class="section" id="section-wasser" style="display:none;">
+    <div class="section-label">Wasser getrunken?</div>
+    <div class="wasser-row">
+      <span id="wasser-count">0 / 8</span>
+      <span class="wasser-plus" id="wasser-plus">+</span>
+    </div>
+  </div>
 
   <!-- Merkzettel: klicken zum Bearbeiten, Überschrift zeigt den Inhalt -->
   <button class="notiz-btn" id="notiz-btn" aria-label="Notiz">✎</button>
@@ -599,22 +886,58 @@
     <textarea class="notiz-edit" id="notiz-edit" style="display:none;" maxlength="200" rows="3"></textarea>
   </div>
 
+  <!-- Flämmchen: tägliche/wöchentliche/monatliche Herausforderung + Streak -->
+  <button class="flaemmchen-btn" id="flaemmchen-btn" aria-label="Flämmchen">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c0-1-.5-2-1-3 2 1 3 3 3 5a5 5 0 0 1-10 0c0-5 4-6 5-10z"></path>
+    </svg>
+    <span id="flaemmchen-streak-badge"></span>
+  </button>
+
+  <div class="flaemmchen-popup" id="flaemmchen-popup" style="display:none;">
+    <div class="notiz-popup-head">
+      <span id="flaemmchen-streak-text">0 Tage Streak</span>
+      <span class="notiz-loeschen" id="flaemmchen-close">✕</span>
+    </div>
+    <div class="flaemmchen-aufgabe">
+      <div class="flaemmchen-label">Heute</div>
+      <div id="flaemmchen-heute-text"></div>
+    </div>
+    <div class="flaemmchen-aufgabe">
+      <div class="flaemmchen-label">Diese Woche</div>
+      <div id="flaemmchen-woche-text"></div>
+    </div>
+    <div class="flaemmchen-aufgabe">
+      <div class="flaemmchen-label">Diesen Monat</div>
+      <div id="flaemmchen-monat-text"></div>
+    </div>
+    <label class="checklist-row flaemmchen-checkbox-row">
+      <input type="checkbox" id="flaemmchen-erledigt-checkbox">
+      <span>Heutige Aufgabe erledigt</span>
+    </label>
+  </div>
+
   <!-- Morgenroutine (nur vor Schulbeginn sichtbar) -->
   <div class="section" id="section-morgenroutine" style="display:none;">
     <div class="section-label">Morgenroutine</div>
-    <div id="morgenroutine-content"></div>
+    <div id="morgenroutine-content" class="checklist-collapse"></div>
   </div>
 
   <!-- Packliste für morgen (abends sichtbar) -->
   <div class="section" id="section-packliste" style="display:none;">
     <div class="section-label">Packliste für morgen</div>
-    <div id="packliste-content"></div>
+    <div id="packliste-content" class="checklist-collapse"></div>
   </div>
 
   <!-- Abendroutine (abends sichtbar) -->
   <div class="section" id="section-abendroutine" style="display:none;">
     <div class="section-label">Abendroutine</div>
-    <div id="abendroutine-content"></div>
+    <div id="abendroutine-content" class="checklist-collapse"></div>
+  </div>
+
+  <!-- Abend-Erinnerung: Handy weglegen (ab LESE_ERINNERUNG_AB_STUNDE) -->
+  <div class="section" id="section-lese-erinnerung" style="display:none;">
+    <div class="lese-erinnerung-text" id="lese-erinnerung-text"></div>
   </div>
 
   <!-- Nächste Stunde (nur während des Unterrichts sichtbar) -->

@@ -28,6 +28,10 @@ function init() {
   loadNews();
   setupScrollReveal();
   setupMenu();
+  setupSwipeMenu();
+  setupWasser();
+  handleLeseErinnerung(phase);
+  setupFlaemmchen();
   updateFavicon();
   setInterval(updateFavicon, 30 * 60 * 1000); // alle 30 Min. neu zeichnen
 }
@@ -176,6 +180,7 @@ function loadNotiz() {
     edit.style.display = "none";
     display.style.display = "block";
     popup.style.display = "none";
+    renderTodo();
   });
 
   loeschen.addEventListener("click", (e) => {
@@ -184,6 +189,7 @@ function loadNotiz() {
     edit.value = "";
     updateNotizDisplay(display, "");
     updatePostit(postitSection, postitText, "");
+    renderTodo();
   });
 }
 
@@ -194,6 +200,178 @@ function updatePostit(section, textEl, text) {
   } else {
     section.style.display = "none";
   }
+}
+
+// --- Wasser-Erinnerung: Zähler pro Tag, tippen zum Erhöhen ---
+// Erscheint ab WASSER_ERINNERUNG_AB_STUNDE (data.js), unabhängig von der
+// Tagesphase - auch am Wochenende/im Ferienmodus relevant.
+function setupWasser() {
+  const key = `dayguide_wasser_${heuteStr()}`;
+  const section = document.getElementById("section-wasser");
+  const countEl = document.getElementById("wasser-count");
+  const plusBtn = document.getElementById("wasser-plus");
+
+  function istSichtbarZeit() {
+    const now = new Date();
+    const stunden = now.getHours() + now.getMinutes() / 60;
+    return stunden >= WASSER_ERINNERUNG_AB_STUNDE;
+  }
+
+  function update() {
+    const val = parseInt(localStorage.getItem(key) || "0", 10);
+    countEl.textContent = `${val} / ${WASSER_ZIEL}`;
+    section.style.display = istSichtbarZeit() ? "" : "none";
+  }
+  update();
+
+  plusBtn.addEventListener("click", () => {
+    const val = parseInt(localStorage.getItem(key) || "0", 10) + 1;
+    localStorage.setItem(key, String(val));
+    update();
+  });
+}
+
+// --- Abend-Erinnerung: ab LESE_ERINNERUNG_AB_STUNDE (data.js), nur in der
+// Phase "abend" - passt zusammen mit Packliste/Abendroutine, die dann schon
+// erledigt sein sollten. ---
+function handleLeseErinnerung(phase) {
+  const el = document.getElementById("section-lese-erinnerung");
+  if (phase !== "abend") {
+    el.style.display = "none";
+    return;
+  }
+  const now = new Date();
+  const stunden = now.getHours() + now.getMinutes() / 60;
+  if (stunden < LESE_ERINNERUNG_AB_STUNDE) {
+    el.style.display = "none";
+    return;
+  }
+  document.getElementById("lese-erinnerung-text").textContent = LESE_ERINNERUNG_TEXT;
+  el.style.display = "";
+}
+
+// --- "Flämmchen": tägliche/wöchentliche/monatliche Herausforderung + Streak ---
+// Datumsstring (wie heuteStr()) für "heute minus n Tage" - lokal berechnet,
+// NIE toISOString() (siehe "Wichtiger Bug" oben in PROJEKT-KONTEXT.md).
+function datumStrVorTagen(tage) {
+  const d = new Date();
+  d.setDate(d.getDate() - tage);
+  const jahr = d.getFullYear();
+  const monat = String(d.getMonth() + 1).padStart(2, "0");
+  const tag = String(d.getDate()).padStart(2, "0");
+  return `${jahr}-${monat}-${tag}`;
+}
+
+function tagDesJahres(d) {
+  const start = new Date(d.getFullYear(), 0, 1);
+  return Math.floor((d - start) / 86400000);
+}
+
+function heutigeFlaemmchenAufgabe() {
+  return FLAEMMCHEN_TAEGLICH[tagDesJahres(new Date()) % FLAEMMCHEN_TAEGLICH.length];
+}
+function wochenFlaemmchenAufgabe() {
+  const woche = Math.floor(tagDesJahres(new Date()) / 7);
+  return FLAEMMCHEN_WOECHENTLICH[woche % FLAEMMCHEN_WOECHENTLICH.length];
+}
+function monatsFlaemmchenAufgabe() {
+  return FLAEMMCHEN_MONATLICH[new Date().getMonth() % FLAEMMCHEN_MONATLICH.length];
+}
+
+// Angezeigter Streak: gilt nur als "noch am Leben", wenn zuletzt heute oder
+// gestern erledigt wurde - sonst als gerissen anzeigen (0), auch wenn der
+// gespeicherte Wert erst beim nächsten Abhaken wirklich zurückgesetzt wird.
+function flaemmchenAngezeigterStreak() {
+  const streak = parseInt(localStorage.getItem("dayguide_flaemmchen_streak") || "0", 10);
+  const letzterTag = localStorage.getItem("dayguide_flaemmchen_letzter_tag") || "";
+  const heute = heuteStr();
+  const gestern = datumStrVorTagen(1);
+  if (letzterTag !== heute && letzterTag !== gestern) return 0;
+  return streak;
+}
+
+function setupFlaemmchen() {
+  const btn = document.getElementById("flaemmchen-btn");
+  const badge = document.getElementById("flaemmchen-streak-badge");
+  const popup = document.getElementById("flaemmchen-popup");
+  const closeBtn = document.getElementById("flaemmchen-close");
+  const streakText = document.getElementById("flaemmchen-streak-text");
+  const checkbox = document.getElementById("flaemmchen-erledigt-checkbox");
+  const previewSection = document.getElementById("section-flaemmchen-preview");
+  const previewText = document.getElementById("flaemmchen-preview-text");
+  const previewStreak = document.getElementById("flaemmchen-preview-streak");
+
+  const heute = heuteStr();
+  const heutigeAufgabe = heutigeFlaemmchenAufgabe();
+
+  document.getElementById("flaemmchen-heute-text").textContent = heutigeAufgabe;
+  document.getElementById("flaemmchen-woche-text").textContent = wochenFlaemmchenAufgabe();
+  document.getElementById("flaemmchen-monat-text").textContent = monatsFlaemmchenAufgabe();
+
+  function aktualisiereAnzeige() {
+    const streak = flaemmchenAngezeigterStreak();
+    badge.textContent = streak > 0 ? String(streak) : "";
+    streakText.textContent = streak === 1 ? "1 Tag Streak" : `${streak} Tage Streak`;
+    previewStreak.textContent = streak > 0 ? ` · ${streak} Tage Streak` : "";
+  }
+
+  checkbox.checked = localStorage.getItem("dayguide_flaemmchen_letzter_tag") === heute;
+  aktualisiereAnzeige();
+
+  // Vorschau auf der Hauptseite: einmal pro Tag offen, danach nur noch das Icon
+  // (gleiches Prinzip wie Wetter/News, die sich nach dem ersten Anschauen reduzieren)
+  const gesehenKey = `dayguide_flaemmchen_gesehen_${heute}`;
+  if (!localStorage.getItem(gesehenKey)) {
+    previewText.textContent = heutigeAufgabe;
+    previewSection.style.display = "";
+  } else {
+    previewSection.style.display = "none";
+  }
+
+  function oeffnen() {
+    popup.style.display = "block";
+    localStorage.setItem(gesehenKey, "1");
+    previewSection.style.display = "none";
+  }
+  function schliessen() {
+    popup.style.display = "none";
+  }
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    popup.style.display === "block" ? schliessen() : oeffnen();
+  });
+  previewSection.addEventListener("click", oeffnen);
+  closeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    schliessen();
+  });
+  document.addEventListener("click", (e) => {
+    if (popup.style.display !== "none" && !popup.contains(e.target) && e.target !== btn) {
+      schliessen();
+    }
+  });
+
+  checkbox.addEventListener("change", () => {
+    const heuteJetzt = heuteStr(); // erneut lesen, falls über Mitternacht offen gelassen
+    let streak = parseInt(localStorage.getItem("dayguide_flaemmchen_streak") || "0", 10);
+    const letzterTag = localStorage.getItem("dayguide_flaemmchen_letzter_tag") || "";
+
+    if (checkbox.checked) {
+      if (letzterTag !== heuteJetzt) {
+        const gestern = datumStrVorTagen(1);
+        streak = letzterTag === gestern ? streak + 1 : 1;
+        localStorage.setItem("dayguide_flaemmchen_streak", String(streak));
+        localStorage.setItem("dayguide_flaemmchen_letzter_tag", heuteJetzt);
+      }
+    } else if (letzterTag === heuteJetzt) {
+      // Rückgängig machen (nur möglich, solange man's noch am selben Tag umstösst)
+      streak = Math.max(0, streak - 1);
+      localStorage.setItem("dayguide_flaemmchen_streak", String(streak));
+      localStorage.setItem("dayguide_flaemmchen_letzter_tag", "");
+    }
+    aktualisiereAnzeige();
+  });
 }
 
 function updateNotizDisplay(display, text) {
@@ -923,12 +1101,15 @@ function renderMorgenroutine() {
     abfahrt.setHours(h, m, 0, 0);
     const losfahren = new Date(abfahrt.getTime() - ZEIT_ZUHAUSE_HALTESTELLE_MIN * 60000);
     const losfahrenStr = losfahren.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+    // insertAdjacentHTML statt innerHTML += : Letzteres würde die eben von
+    // renderChecklist gesetzten Checkbox-Listener zerstören (innerHTML +=
+    // baut ALLE Kind-Elemente neu auf, auch die schon vorhandenen).
     const el = document.getElementById("morgenroutine-content");
-    el.innerHTML += `
+    el.insertAdjacentHTML("beforeend", `
       <div class="lesson-row" style="margin-top:6px;">
         <span class="lesson-time">→</span>
         <span>Losfahren spätestens ${losfahrenStr}</span>
-      </div>`;
+      </div>`);
   }
 }
 
@@ -1237,6 +1418,7 @@ function setupMenu() {
   });
 
   setupTodoInput();
+  setupKalenderPopup();
 
   const ferienToggle = document.getElementById("ferienmodus-toggle");
   ferienToggle.checked = localStorage.getItem("dayguide_ferienmodus") === "1";
@@ -1244,6 +1426,46 @@ function setupMenu() {
     localStorage.setItem("dayguide_ferienmodus", ferienToggle.checked ? "1" : "0");
     location.reload();
   });
+}
+
+// --- Menü per Wisch-Geste öffnen/schliessen: nach links wischen öffnet,
+// nach rechts wischen schliesst - unabhängig davon, ob es schon offen ist.
+// Ignoriert Wischen auf der Karte/dem Zeitschieberegler beim Regenradar,
+// damit das Bedienen davon nicht versehentlich das Menü umschaltet. ---
+function setupSwipeMenu() {
+  const overlay = document.getElementById("menu-overlay");
+  let startX = 0, startY = 0, tracking = false;
+
+  function sollIgnoriert(target) {
+    return !!target.closest("#radar-map, .radar-controls, .leaflet-container, input[type=range]");
+  }
+
+  document.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1 || sollIgnoriert(e.target)) {
+      tracking = false;
+      return;
+    }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    tracking = true;
+  }, { passive: true });
+
+  document.addEventListener("touchend", (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const deltaX = e.changedTouches[0].clientX - startX;
+    const deltaY = e.changedTouches[0].clientY - startY;
+
+    // Nur eindeutig horizontale, ausreichend lange Wischgesten zählen -
+    // sonst würde normales vertikales Scrollen das Menü mit auslösen.
+    if (Math.abs(deltaX) < 60 || Math.abs(deltaX) < Math.abs(deltaY) * 1.5) return;
+
+    if (deltaX < 0) {
+      overlay.classList.add("open");
+    } else {
+      overlay.classList.remove("open");
+    }
+  }, { passive: true });
 }
 
 // --- To-Do-Liste (bleibt gespeichert, bis du Einträge selbst löschst) ---
@@ -1255,20 +1477,38 @@ function speichereTodos(todos) {
 }
 
 function renderTodo() {
-  const todos = ladeTodos();
   const list = document.getElementById("todo-list");
+  if (!list) return; // vor dem ersten Menü-Öffnen noch nicht im DOM relevant
+  const todos = ladeTodos();
+  const notizText = (localStorage.getItem("dayguide_notiz") || "").trim();
 
-  if (todos.length === 0) {
-    list.innerHTML = `<div class="empty">Keine Aufgaben.</div>`;
-    return;
+  let html = "";
+  if (notizText) {
+    html += `
+      <div class="checklist-row todo-notiz-row" id="todo-notiz-pin">
+        <span class="todo-notiz-label">Notiz</span>
+        <span>${notizText}</span>
+      </div>`;
   }
 
-  list.innerHTML = todos.map((t, i) => `
-    <label class="checklist-row todo-row${t.done ? " done" : ""}">
-      <input type="checkbox" data-i="${i}" ${t.done ? "checked" : ""}>
-      <span>${t.text}</span>
-      <span class="todo-delete" data-i="${i}">✕</span>
-    </label>`).join("");
+  html += todos.length === 0
+    ? `<div class="empty">Keine Aufgaben.</div>`
+    : todos.map((t, i) => `
+      <label class="checklist-row todo-row${t.done ? " done" : ""}">
+        <input type="checkbox" data-i="${i}" ${t.done ? "checked" : ""}>
+        <span>${t.text}</span>
+        <span class="todo-delete" data-i="${i}">✕</span>
+      </label>`).join("");
+
+  list.innerHTML = html;
+
+  const pin = document.getElementById("todo-notiz-pin");
+  if (pin) {
+    pin.addEventListener("click", () => {
+      document.getElementById("menu-overlay").classList.remove("open");
+      document.getElementById("notiz-popup").style.display = "block";
+    });
+  }
 
   list.querySelectorAll("input[type=checkbox]").forEach(cb => {
     cb.addEventListener("change", () => {
@@ -1309,11 +1549,29 @@ function setupTodoInput() {
   });
 }
 
+// Angezeigter Monat (unabhängig vom heutigen Datum, per Pfeile änderbar).
+let kalenderJahr = null;
+let kalenderMonat = null;
+
+function ladeKalenderNotizen() {
+  return JSON.parse(localStorage.getItem("dayguide_kalender_notizen") || "{}");
+}
+function speichereKalenderNotizen(notizen) {
+  localStorage.setItem("dayguide_kalender_notizen", JSON.stringify(notizen));
+}
+function kalenderDatumKey(jahr, monat, tag) {
+  return `${jahr}-${String(monat + 1).padStart(2, "0")}-${String(tag).padStart(2, "0")}`;
+}
+
 function renderKalender() {
   const heute = new Date();
-  const jahr = heute.getFullYear();
-  const monat = heute.getMonth();
-  const monatsName = heute.toLocaleDateString("de-CH", { month: "long", year: "numeric" });
+  if (kalenderJahr === null) {
+    kalenderJahr = heute.getFullYear();
+    kalenderMonat = heute.getMonth();
+  }
+  const jahr = kalenderJahr;
+  const monat = kalenderMonat;
+  const monatsName = new Date(jahr, monat, 1).toLocaleDateString("de-CH", { month: "long", year: "numeric" });
   document.getElementById("kalender-monat-label").textContent = monatsName;
 
   const pruefungsTage = new Set(
@@ -1323,9 +1581,20 @@ function renderKalender() {
     }).map(p => new Date(p.date).getDate())
   );
 
+  const kalenderNotizen = ladeKalenderNotizen();
+  const notizTage = new Set(
+    Object.keys(kalenderNotizen)
+      .filter(key => (kalenderNotizen[key] || "").trim())
+      .filter(key => {
+        const [ky, km] = key.split("-").map(Number);
+        return ky === jahr && km === monat + 1;
+      })
+      .map(key => Number(key.split("-")[2]))
+  );
+
   const ersterTagWochentag = (new Date(jahr, monat, 1).getDay() + 6) % 7; // Mo=0
   const anzahlTage = new Date(jahr, monat + 1, 0).getDate();
-  const heuteTag = heute.getDate();
+  const heuteTag = (jahr === heute.getFullYear() && monat === heute.getMonth()) ? heute.getDate() : -1;
 
   let html = `<div class="kalender-grid">`;
   ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].forEach(w => {
@@ -1338,11 +1607,74 @@ function renderKalender() {
     const klassen = ["kalender-tag"];
     if (tag === heuteTag) klassen.push("heute");
     if (pruefungsTage.has(tag)) klassen.push("pruefung");
-    html += `<div class="${klassen.join(" ")}">${tag}</div>`;
+    if (notizTage.has(tag)) klassen.push("notiz-vorhanden");
+    html += `<div class="${klassen.join(" ")}" data-tag="${tag}">${tag}</div>`;
   }
   html += `</div>`;
 
   document.getElementById("kalender-content").innerHTML = html;
+
+  document.querySelectorAll("#kalender-content .kalender-tag:not(.leer)").forEach(el => {
+    el.addEventListener("click", () => oeffneKalenderPopup(jahr, monat, Number(el.dataset.tag)));
+  });
+}
+
+function kalenderMonatWechseln(delta) {
+  kalenderMonat += delta;
+  if (kalenderMonat < 0) { kalenderMonat = 11; kalenderJahr--; }
+  if (kalenderMonat > 11) { kalenderMonat = 0; kalenderJahr++; }
+  document.getElementById("kalender-popup").style.display = "none";
+  renderKalender();
+}
+
+function oeffneKalenderPopup(jahr, monat, tag) {
+  const key = kalenderDatumKey(jahr, monat, tag);
+  const popup = document.getElementById("kalender-popup");
+  const label = document.getElementById("kalender-popup-datum");
+  const text = document.getElementById("kalender-popup-text");
+  const notizen = ladeKalenderNotizen();
+
+  label.textContent = new Date(jahr, monat, tag).toLocaleDateString("de-CH", { weekday: "long", day: "numeric", month: "long" });
+  text.value = notizen[key] || "";
+  popup.dataset.key = key;
+  popup.style.display = "block";
+  text.focus();
+}
+
+function setupKalenderPopup() {
+  const popup = document.getElementById("kalender-popup");
+  const text = document.getElementById("kalender-popup-text");
+  const loeschen = document.getElementById("kalender-popup-loeschen");
+
+  text.addEventListener("blur", () => {
+    const key = popup.dataset.key;
+    if (!key) return;
+    const notizen = ladeKalenderNotizen();
+    const wert = text.value.trim();
+    if (wert) notizen[key] = wert; else delete notizen[key];
+    speichereKalenderNotizen(notizen);
+    renderKalender();
+  });
+
+  loeschen.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const key = popup.dataset.key;
+    const notizen = ladeKalenderNotizen();
+    delete notizen[key];
+    speichereKalenderNotizen(notizen);
+    text.value = "";
+    popup.style.display = "none";
+    renderKalender();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (popup.style.display !== "none" && !popup.contains(e.target) && !e.target.classList.contains("kalender-tag")) {
+      popup.style.display = "none";
+    }
+  });
+
+  document.getElementById("kalender-prev").addEventListener("click", () => kalenderMonatWechseln(-1));
+  document.getElementById("kalender-next").addEventListener("click", () => kalenderMonatWechseln(1));
 }
 
 function renderWochenplan() {

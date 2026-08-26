@@ -40,6 +40,51 @@ const ABENDROUTINE = ["Kleider für morgen bereitlegen", "Gesicht waschen", "Zä
 // Ab welcher Uhrzeit (Dezimalstunden, z. B. 20.5 = 20:30) die Packliste
 // abends überhaupt erscheint.
 const PACKLISTE_AB_STUNDE = 20.5;
+
+// --- Wasser-Erinnerung (Zähler pro Tag, tippen zum Erhöhen) ---
+// Ab welcher Uhrzeit die Erinnerung überhaupt erscheint (11 = 11:00, "Mittag").
+const WASSER_ERINNERUNG_AB_STUNDE = 11;
+const WASSER_ZIEL = 8;
+
+// --- Abend-Erinnerung: Handy weglegen und lesen ---
+// Ab welcher Uhrzeit (Dezimalstunden, z. B. 22.5 = 22:30) der Hinweis erscheint.
+const LESE_ERINNERUNG_AB_STUNDE = 22.5;
+const LESE_ERINNERUNG_TEXT = "Zeit, das Handy wegzulegen und zu lesen.";
+
+// --- "Flämmchen": tägliche/wöchentliche/monatliche Herausforderung mit Streak
+// (Duolingo/Snapchat-Stil). Die Aufgabe wird deterministisch aus der jeweiligen
+// Liste gewählt (Tag im Jahr / Woche im Jahr / Monat, siehe app.js) - bleibt beim
+// Neuladen also gleich, kein Zufall/Speicher nötig. Frei anpassbar/erweiterbar,
+// gerne eigene Ideen ergänzen oder Kategorien mischen (produktiv, sportlich,
+// sozial, gesund).
+const FLAEMMCHEN_TAEGLICH = [
+  "Unter 10 Minuten Bildschirmzeit ausserhalb der Schule",
+  "100 Liegestütze (über den Tag verteilt)",
+  "Kalt duschen",
+  "4 Liter Wasser trinken",
+  "Jemandem ein ehrliches Kompliment machen",
+  "10 Minuten meditieren oder bewusst nichts tun",
+  "Ein Kapitel eines Buches lesen",
+  "Zimmer komplett aufräumen",
+  "30 Minuten spazieren, ohne Handy dabei",
+  "Jemandem helfen, ohne gefragt zu werden",
+  "Etwas Neues gelernt (Wort, Fakt, Fähigkeit) und aufgeschrieben",
+  "Frühstück statt Handy als Erstes am Morgen",
+];
+const FLAEMMCHEN_WOECHENTLICH = [
+  "Ein neues Rezept kochen",
+  "Ein Telefongespräch statt Chat mit jemandem führen",
+  "Einen Artikel/Podcast zu einem Thema ausserhalb der Schule konsumieren",
+  "Schreibtisch/Zimmer einmal gründlich aufräumen",
+  "Einen Tag komplett ohne Social Media",
+];
+const FLAEMMCHEN_MONATLICH = [
+  "Ein Buch zu Ende lesen",
+  "Ein neues Hobby/eine neue Fähigkeit ausprobieren",
+  "Eine alte Freundschaft/einen alten Kontakt wieder auffrischen",
+  "Einen ganzen Tag bewusst offline verbringen",
+];
+
 // Aktuell grob auf Kirchberg SG gesetzt. Falls das nicht stimmt,
 // hier die echten Koordinaten eintragen (z. B. von Google Maps
 // per Rechtsklick auf deinen Wohnort kopieren).
