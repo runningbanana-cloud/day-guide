@@ -24,8 +24,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
   :root {
     --bg: #000000;
@@ -35,7 +33,7 @@
     --amber: #d8a35e;
     --line: #1a1a1a;
     --popup-bg: #0a0a0a;
-    --overlay-bg: rgba(0, 0, 0, 0.92);
+    --overlay-bg: #050505;
     --tile-bg: #141414;
     --tile-bg-active: #1e1e1e;
     --switch-thumb: #ffffff;
@@ -56,7 +54,7 @@
     --amber: #a3701f;
     --line: #dcdcdc;
     --popup-bg: #f4f4f4;
-    --overlay-bg: rgba(255, 255, 255, 0.96);
+    --overlay-bg: #fbfbfb;
     --tile-bg: #eeeeee;
     --tile-bg-active: #e2e2e2;
     --switch-thumb: #ffffff;
@@ -313,101 +311,30 @@
     line-height: 1.4;
   }
 
-  /* Regenradar */
-  .radar-container { margin-top: 10px; }
-  #radar-map {
-    width: 100%;
-    height: 260px;
-    border: 1px solid var(--line);
-    background: #000000;
-  }
-  .radar-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 8px;
-  }
-  .radar-time {
-    font-size: 12px;
-    color: var(--text-mid);
-    min-width: 44px;
-    font-variant-numeric: tabular-nums;
-  }
-  .radar-slider {
-    flex: 1;
-    accent-color: var(--amber);
-  }
-  .radar-credit {
-    margin-top: 6px;
-    font-size: 10px;
-    color: var(--text-dim);
-  }
-
-  /* Menü */
-  .menu-btn {
+  /* Icon-Reihe oben rechts: EIN Flex-Container statt einzeln positionierter
+     Icons, damit ein ausgeblendetes Icon (z. B. Sport-Hinweis ohne Sport
+     morgen) keine Lücke hinterlässt, sondern die anderen zusammenrutschen. */
+  .icon-reihe {
     position: fixed;
     top: max(20px, env(safe-area-inset-top));
     right: 20px;
-    background: none;
-    border: none;
-    color: var(--text);
-    font-size: 20px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 8px;
-    z-index: 100;
-  }
-
-  .sport-hinweis-ecke {
-    position: fixed;
-    top: max(20px, env(safe-area-inset-top));
-    right: 100px;
-    color: var(--text);
-    z-index: 100;
-    padding: 8px;
-  }
-  .sport-hinweis-ecke svg { width: 22px; height: 22px; }
-
-  .notiz-btn {
-    position: fixed;
-    top: max(20px, env(safe-area-inset-top));
-    right: 60px;
-    background: none;
-    border: none;
-    color: var(--text);
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 8px;
-    z-index: 100;
-  }
-
-  .hausaufgaben-shortcut-btn {
-    position: fixed;
-    top: max(20px, env(safe-area-inset-top));
-    right: 180px;
-    background: none;
-    border: none;
-    color: var(--text);
-    cursor: pointer;
-    padding: 8px;
-    z-index: 100;
-  }
-
-  .flaemmchen-btn {
-    position: fixed;
-    top: max(20px, env(safe-area-inset-top));
-    right: 140px;
-    background: none;
-    border: none;
-    color: var(--text);
-    cursor: pointer;
-    padding: 8px;
     z-index: 100;
     display: flex;
     align-items: center;
-    gap: 3px;
   }
+  .icon-reihe > * {
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+  }
+  .menu-btn { font-size: 20px; line-height: 1; }
+  .notiz-btn { font-size: 18px; line-height: 1; }
+  .sport-hinweis-ecke svg { width: 22px; height: 22px; }
+  .flaemmchen-btn { gap: 3px; }
   #flaemmchen-streak-badge {
     font-size: 12px;
     font-variant-numeric: tabular-nums;
@@ -560,13 +487,22 @@
   }
 
   .menu-close {
-    position: absolute;
-    top: -56px;
-    right: -6px;
+    /* WICHTIG: fixed statt absolute! .menu-panel ist normaler (scrollender)
+       Inhalt von .menu-overlay - mit position:absolute würde dieser Button
+       beim Scrollen in einer langen Ansicht (z. B. Hausaufgaben-Formular) nach
+       oben aus dem Bild wandern und unerreichbar werden. Mit fixed bleibt er
+       exakt an derselben Bildschirmstelle wie das ☰-Icon darunter, unabhängig
+       vom Scroll-Stand im Menü. (.menu-overlay hat ein transform, das macht es
+       zum Bezugspunkt für fixed-Kinder - deckt sich hier zufällig genau mit
+       dem, was wir wollen, da es den ganzen Viewport abdeckt, wenn offen.) */
+    position: fixed;
+    top: max(20px, env(safe-area-inset-top));
+    right: 20px;
     font-size: 20px;
     cursor: pointer;
     color: var(--text);
     padding: 14px;
+    z-index: 210;
   }
 
   .menu-list-item {
@@ -909,6 +845,57 @@
     .menu-overlay { transition: none !important; }
   }
 
+  /* Desktop/breite Bildschirme: zwei Spalten statt der schmalen Handy-Ansicht.
+     Handy (unter 900px) bleibt komplett unverändert. Spalten-Zuordnung per ID,
+     NICHT per DOM-Reihenfolge, weil applyTimeOfDayLayout() Sektionen per JS
+     ständig umsortiert (wrap.append(...)) - die Reihenfolge INNERHALB einer
+     Spalte richtet sich weiterhin danach, nur die Spalten-Zugehörigkeit ist
+     hier fest verdrahtet. Neue dauerhafte Sektionen hier ergänzen, sonst
+     landen sie einfach automatisch in Spalte 1. */
+  /* Ausserhalb der Desktop-Ansicht nie sichtbar - auf dem Handy gibt es dafür
+     schon den Schnellzugriff/die Morgen-Erinnerung, kein drittes Vorkommen nötig.
+     MUSS vor der Media Query stehen, sonst gewinnt diese Regel bei gleicher
+     Spezifität auch auf dem Desktop (spätere Regel schlägt frühere). */
+  #section-hausaufgaben-widget,
+  #section-kalender-widget { display: none; }
+
+  @media (min-width: 900px) {
+    .wrap {
+      max-width: 1200px;
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    .header { grid-column: 1 / -1; }
+    /* Beide Spalten EXPLIZIT zuweisen, nicht nur Spalte 2 - sonst entscheidet
+       Grid-Auto-Placement bei "auto" gelassenen Boxen selbst (abhängig von der
+       gerade aktuellen DOM-Reihenfolge durch applyTimeOfDayLayout), was zu
+       zufällig falsch einsortierten Boxen in Spalte 2 führen kann. */
+    #section-weather,
+    #section-bus,
+    #section-lessons,
+    #section-nextlesson,
+    #section-exams,
+    #section-morgenroutine,
+    #section-packliste,
+    #section-abendroutine,
+    #section-hausaufgaben-erinnerung,
+    #section-lese-erinnerung {
+      grid-column: 1;
+    }
+    #section-notiz-postit,
+    #section-hausaufgaben-widget,
+    #section-kalender-widget,
+    #section-flaemmchen-preview,
+    #section-news {
+      grid-column: 2;
+    }
+    #section-hausaufgaben-widget,
+    #section-kalender-widget { display: block; }
+    #section-kalender-widget .kalender-tag { cursor: default; }
+  }
+
   /* Kompakte Darstellung für Sektionen, die gerade weniger wichtig sind */
   .section.compact { padding: 14px 16px; }
   .section.compact .section-label { font-size: 10px; margin-bottom: 8px; }
@@ -923,7 +910,33 @@
 <body>
 <div class="wrap">
 
-  <button class="menu-btn" id="menu-btn" aria-label="Menü">☰</button>
+  <div class="icon-reihe">
+    <!-- Schnellzugriff: direkt ins Hausaufgaben-Formular, ohne über Schule zu gehen -->
+    <button class="hausaufgaben-shortcut-btn" id="hausaufgaben-shortcut-btn" aria-label="Hausaufgabe hinzufügen">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path>
+        <path d="M14 3v5h5"></path>
+        <line x1="9" y1="13" x2="15" y2="13"></line>
+        <line x1="9" y1="17" x2="12" y2="17"></line>
+      </svg>
+    </button>
+
+    <!-- Flämmchen: tägliche/wöchentliche/monatliche Herausforderung + Streak -->
+    <button class="flaemmchen-btn" id="flaemmchen-btn" aria-label="Flämmchen">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd">
+        <path d="M12.5 2.2c1.3 2.8-.7 4.6-2.4 6.8-1.9 2.5-3.4 4.6-3.4 7.3a5.3 5.3 0 0 0 10.6.4c.1-1.8-.5-3.2-1.2-4.4.6 2.3-.7 3.6-2.1 3.4 1.3-2.1.1-4-1-5.3-.2 2-1.6 2.8-1.4 4.6-1.5-1.4-2-3.6-.8-5.7.9-1.6 2.4-3.7 1.7-7.1z
+        M12.3 13c-.9 1.1-1.6 2.2-1.6 3.6 0 1.7 1.3 2.9 2.9 2.7 1.4-.2 2.4-1.5 2.2-2.9-.1-.7-.4-1.3-.8-1.8.2 1.1-.5 1.8-1.3 1.7.6-1.3-.2-2.3-1-2.9.1.9-.6 1.4-.4 2.2-.7-.7-1.1-1.7-.1-2.6z"></path>
+      </svg>
+      <span id="flaemmchen-streak-badge"></span>
+    </button>
+
+    <div class="sport-hinweis-ecke" id="sport-hinweis" style="display:none;"></div>
+
+    <!-- Merkzettel: klicken zum Bearbeiten, Überschrift zeigt den Inhalt -->
+    <button class="notiz-btn" id="notiz-btn" aria-label="Notiz">✎</button>
+
+    <button class="menu-btn" id="menu-btn" aria-label="Menü">☰</button>
+  </div>
 
   <div class="menu-overlay" id="menu-overlay">
     <div class="menu-panel">
@@ -1071,17 +1084,25 @@
     <div class="notiz-postit-text" id="notiz-postit-text"></div>
   </div>
 
+  <!-- Nur auf breiten Bildschirmen sichtbar (siehe Media Query): Hausaufgaben
+       direkt zugänglich, ohne ins Menü zu müssen - Tim nutzt das am PC häufiger. -->
+  <div class="section" id="section-hausaufgaben-widget">
+    <div class="section-label">Hausaufgaben</div>
+    <div id="hausaufgaben-widget-content"></div>
+  </div>
+
+  <!-- Nur auf breiten Bildschirmen: kompakter, nicht-interaktiver Kalender-
+       Ausschnitt statt der morgendlichen Sachen (siehe Media Query). -->
+  <div class="section" id="section-kalender-widget">
+    <div class="section-label" id="kalender-widget-label">Kalender</div>
+    <div id="kalender-widget-content"></div>
+  </div>
+
   <!-- Flämmchen-Vorschau: heutige Aufgabe, nur bis einmal angeschaut -->
   <div class="section" id="section-flaemmchen-preview" style="display:none;">
     <div class="section-label">Heutige Aufgabe<span id="flaemmchen-preview-streak"></span></div>
     <div id="flaemmchen-preview-text" class="flaemmchen-preview-text"></div>
   </div>
-
-  <div class="sport-hinweis-ecke" id="sport-hinweis" style="display:none;"></div>
-
-
-  <!-- Merkzettel: klicken zum Bearbeiten, Überschrift zeigt den Inhalt -->
-  <button class="notiz-btn" id="notiz-btn" aria-label="Notiz">✎</button>
 
   <div class="notiz-popup" id="notiz-popup" style="display:none;">
     <div class="notiz-popup-head">
@@ -1090,24 +1111,6 @@
     </div>
     <textarea class="notiz-edit" id="notiz-edit" style="display:none;" maxlength="200" rows="3"></textarea>
   </div>
-
-  <!-- Flämmchen: tägliche/wöchentliche/monatliche Herausforderung + Streak -->
-  <!-- Schnellzugriff: direkt ins Hausaufgaben-Formular, ohne über Schule zu gehen -->
-  <button class="hausaufgaben-shortcut-btn" id="hausaufgaben-shortcut-btn" aria-label="Hausaufgabe hinzufügen">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path>
-      <path d="M14 3v5h5"></path>
-      <line x1="9" y1="13" x2="15" y2="13"></line>
-      <line x1="9" y1="17" x2="12" y2="17"></line>
-    </svg>
-  </button>
-
-  <button class="flaemmchen-btn" id="flaemmchen-btn" aria-label="Flämmchen">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2c-1.5 3 .3 4.7-1.3 7.3C9.3 11.6 7.5 13 7.5 16a4.5 4.5 0 0 0 9 0c0-1.2-.4-2.3-1-3.2.5 1.8-.4 3.1-1.8 3.1.9-2.2-.4-3.8-1.2-4.8-.3 1.6-1.7 2.2-1.4 3.7-1.1-1.1-1.5-3-.4-4.7C11.6 8.8 13.6 5.8 12 2z"></path>
-    </svg>
-    <span id="flaemmchen-streak-badge"></span>
-  </button>
 
   <div class="flaemmchen-popup" id="flaemmchen-popup" style="display:none;">
     <div class="notiz-popup-head">

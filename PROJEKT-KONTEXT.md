@@ -78,17 +78,118 @@ aktuelle Phase auftauchen, bleiben unsichtbar (via `style.display = "none"`).
 - Reduziert sich wie News auf nur das Label ("Wetter 18°"), sobald es in diesem
   Zeitfenster (morgen/mittag, siehe `getNewsSlot()`) schon einmal angeschaut wurde.
   Klick auf das Label (`#weather-label`) klappt wieder auf/zu.
-- **Regenradar:** RainViewer API (kostenlos, kein Key), Schwarz-Weiss durch CSS-Filter
-  (`grayscale(1) invert(1) contrast(1.3) brightness(1.1)`) auf einer eigenen Leaflet-
-  Pane. RainViewer unterstützt nur Zoom bis Stufe 7 (`maxNativeZoom: 7`) – das ist eine
-  Einschränkung von RainViewer selbst, kein Bug. Kartenunterlage: CartoDB dark_all
-  (kostenlos, Zuschreibung nötig).
-- **Regler:** Custom SVG-Halbkreis (kein natives `<input type="range">` mehr!), per
-  Pointer-Events ziehbar, aktualisiert live sowohl die Regen-Kachel als auch eine
-  synchronisierte Temperaturanzeige (`findeTemperaturFuerZeit()` sucht die nächstgelegene
-  Stunde in den Open-Meteo-Stundendaten). **Das ist ein frisch gebautes, noch nicht
-  gründlich getestetes Bedienelement** – Grösse/Trefferbereich könnten noch Justierung
-  brauchen.
+- **Regenradar wieder entfernt:** gab es zwischenzeitlich (RainViewer + Leaflet-Karte
+  mit Zeitschieberegler), Tim war der Meinung, es funktioniere nicht, und wollte es
+  ersatzlos weg. Komplett entfernt inkl. Leaflet-Includes im `<head>`. Falls das Thema
+  nochmal aufkommt: einfacher/robuster neu bauen, nicht die alte Version reaktivieren.
+
+## Automatischer Refresh beim Zurückkommen (iOS-PWA-Fix)
+
+Tim (App auf iPhone-Homescreen, also als PWA im "standalone"-Modus): musste bisher
+nach jedem Tagesphasen-Wechsel die App manuell schliessen und neu laden, weil iOS die
+Seite im Hintergrund einfriert statt sie weiterlaufen zu lassen oder neu zu laden.
+
+**Lösung:** `init()` in app.js ist jetzt in zwei Teile gesplittet:
+- `aktualisiereInhalt()` - alles Zeitabhängige (Tagesphase, Wetter, Bus, Stundenplan,
+  Prüfungen, News, Erinnerungen, Flämmchen-Anzeige, Hausaufgaben-Widget, Favicon).
+  Hängt KEINE Event-Listener an, darf beliebig oft aufgerufen werden.
+- `init()` - ruft `aktualisiereInhalt()` einmal auf, dann alle `setup*()`-Funktionen
+  (Event-Listener), UND registriert einen `visibilitychange`-Listener, der bei
+  Rückkehr in den Vordergrund (`document.visibilityState === "visible"`) erneut
+  `aktualisiereInhalt()` aufruft.
+
+**Wichtige Regel für neue Features:** Alles, was nur Inhalt/Anzeige aktualisiert
+(kein `addEventListener`), gehört in `aktualisiereInhalt()` (oder eine Funktion, die
+von dort aufgerufen wird). Alles, was Event-Listener anhängt, gehört NUR in `init()`
+(einmalig) - sonst hängen sich bei jedem Vordergrund-Wechsel doppelte/dreifache
+Listener an (z. B. ein Klick auf einen Button würde ein Popup zweimal auf und wieder
+zu schalten). Bei Flämmchen wurde dafür extra `aktualisiereFlaemmchenInhalt()` aus
+`setupFlaemmchen()` herausgezogen - gutes Vorbild für ähnliche Fälle.
+
+## Bugfix: Menü-Schliessen-Kreuz nicht erreichbar
+
+`.menu-close` war `position: absolute` relativ zu `.menu-panel` - das ist normaler
+(scrollender) Inhalt von `.menu-overlay`. In langen Ansichten (z. B. Hausaufgaben-
+Formular) wanderte das Kreuz beim Scrollen nach oben aus dem sichtbaren Bereich und
+wurde unerreichbar (Tim: "sehr, sehr selten funktioniert's"). Gefixt mit
+`position: fixed` (gleiche Koordinaten wie `.icon-reihe`) - bleibt jetzt immer an
+derselben Bildschirmstelle, unabhängig vom Scroll-Stand im Menü.
+
+## Notiz-Post-it: nur sichtbar mit Text (nicht mehr immer)
+
+Kurzes Hin und Her hier: Post-it war ursprünglich nur mit Text sichtbar (Icon sonst).
+Wurde kurz auf "immer sichtbar, auch leer als Platzhalter" geändert, dann von Tim
+wieder zurückgewiesen - er wollte NUR bei vorhandenem Text die grosse Kachel, sonst
+nur das kleine Stift-Icon. Jetzt wieder wie ursprünglich (`updatePostit()` blendet bei
+leerem Text komplett aus). Die Klick-Funktionalität (Kachel antippen öffnet direkt das
+Bearbeiten-Popup) bleibt aber gefixt, siehe Bugfix-Eintrag oben in der Notiz-Sektion.
+
+## Desktop-Layout (ab 900px Breite)
+
+Handy-Ansicht (unter 900px) bleibt komplett unverändert - Tim war damit schon
+zufrieden, wollte nur für den PC (mehr Platz) etwas anderes. `@media (min-width: 900px)`
+macht aus `.wrap` ein zweispaltiges CSS-Grid (`1.6fr 1fr`, `max-width: 1200px`, damit
+der Bildschirm auch auf grossen Monitoren ordentlich gefüllt wird statt schmal in der
+Mitte zu kleben - war Tims erste Rückmeldung dazu).
+
+**Spalten-Zuordnung per ID, für BEIDE Spalten explizit** (`#section-xyz { grid-column:
+1; }` bzw. `2`), NICHT per DOM-Reihenfolge/"auto" gelassen. **Wichtiger Bugfix hier:**
+zuerst war nur Spalte 2 explizit zugewiesen, Spalte-1-Kandidaten liefen auf "auto" -
+das führte dazu, dass CSS Grids Auto-Placement-Algorithmus manche "auto"-Boxen (z. B.
+Prüfungen) je nach aktueller DOM-Reihenfolge (die `applyTimeOfDayLayout()` per
+`wrap.append()` ständig ändert) unvorhersehbar in Spalte 2 einsortiert hat, statt in
+Spalte 1 zu bleiben. Regel für neue dauerhafte Sektionen: IMMER explizit `grid-column:
+1` ODER `2` setzen, nie eine dritte, unzugewiesene Sektion einfach so im `.wrap` lassen.
+
+Spalte 2 (rechts, schmaler): Notiz-Post-it, Hausaufgaben-Widget, Kalender-Widget,
+Flämmchen-Vorschau, News. Spalte 1 (links, breiter): Wetter, Bus, Stundenplan,
+Nächste-Lektion, Prüfungen, Morgenroutine, Packliste, Abendroutine,
+Hausaufgaben-Erinnerung, Lese-Erinnerung. `.header` spannt beide Spalten oben drüber.
+
+**Hausaufgaben-Widget** (`section-hausaufgaben-widget`): NUR im Desktop-Grid sichtbar
+(per CSS `display:none` als Basis, `display:block` in der Media Query - diese
+Reihenfolge ist wichtig, siehe Kommentar im CSS). Zeigt die offenen (nicht erledigten)
+Hausaufgaben mit echter Checkbox zum Abhaken direkt auf der Hauptseite, ohne ins Menü
+zu müssen - Tim nutzt den Hausaufgabenmanager öfter am PC. Nutzt dieselbe
+`renderFolderListe()` wie die Schule-Ansicht, jetzt mit einem vierten Parameter
+`nurOffene` (`renderHausaufgabenWidget()` ruft mit `nurOffene=true` auf). Wird bei
+JEDER Todo-Änderung mit aktualisiert (`renderTodo()` ruft es am Anfang mit auf), plus
+einmal in `aktualisiereInhalt()` fürs erste Laden/den Foreground-Refresh.
+**Falls Tim weitere "nur am PC nützliche" Widgets möchte:** gleiches Muster - Sektion
+mit `display:none` Basis + `display:block` in der Media Query, in `grid-column: 2`
+aufnehmen.
+
+**Morgendliche Sachen auf dem Desktop ausgeblendet:** Tim nutzt den PC laut eigener
+Aussage nur während/gegen Ende der Schule, nicht morgens davor. `istDesktopBreite()`
+(app.js, `window.matchMedia("(min-width: 900px)")`) blendet auf dem Desktop aus:
+Morgenroutine (`applyTimeOfDayLayout`) und den Bus-Hinweg/"Weg zur Kanti" in Phase
+"vor"/"keineLektionen" (`handleBusSection`). **Der Heimweg-Bus (Phase "heimweg")
+bleibt bewusst sichtbar** - den will Tim kurz vor Schulschluss evtl. noch am PC sehen.
+Wichtig: dieselbe `#section-bus` zeigt je nach Phase "Weg zur Kanti" ODER "Heimweg" -
+ist keine zwei getrennten Sektionen, nur ein anderer Text im selben Element.
+
+**Kalender-Widget** (`section-kalender-widget`, ebenfalls nur Desktop): zeigt den
+AKTUELLEN Monat (nicht den zuletzt im Menü durchgeblätterten), rein zur Ansicht, ohne
+Klick-Popup (`.kalender-tag` hat dort `cursor:default`). `kalenderGridHtml(jahr, monat)`
+ist die aus `renderKalender()` herausgezogene, wiederverwendbare Grid-HTML-Funktion -
+falls sich am Kalender-Grid selbst was ändert, hier UND in `renderKalender()` prüfen,
+ob beide noch zusammenpassen (sie teilen sich dieselbe Funktion, sollte eigentlich von
+selbst passen). `renderKalenderWidget()` wird nach jeder Kalender-Notiz-Änderung
+aufgerufen (Popup speichern/löschen, Hausaufgaben-/Lernplan-Formular), damit die
+Punkte für "Notiz vorhanden" synchron bleiben.
+
+## Icon-Reihe oben rechts
+
+Alle Icons (Hausaufgaben-Schnellzugriff, Flämmchen, Sport-Hinweis, Notiz, Menü) sitzen
+jetzt in EINEM Flex-Container `.icon-reihe` (`position:fixed; right:20px; display:flex;`)
+statt einzeln `position:fixed` mit eigenem `right`-Wert. Grund: einzeln positioniert
+hinterliess ein ausgeblendetes Icon (z. B. Sport-Hinweis, wenn kein Sport ansteht) eine
+sichtbare Lücke, weil die anderen ihre feste Position behielten. Mit Flexbox rutschen
+die übrigen Icons automatisch zusammen, wenn eins per `display:none` verschwindet.
+**Reihenfolge in der HTML wichtig:** von links nach rechts wie sie erscheinen sollen
+(Hausaufgaben-Schnellzugriff → Flämmchen → Sport-Hinweis → Notiz → Menü ganz rechts,
+am nächsten zum Bildschirmrand). Neue Icons hier IMMER als Kind von `.icon-reihe`
+einfügen, nie wieder einzeln `position:fixed`.
 
 ## Flämmchen (Streak-Feature, Duolingo/Snapchat-Stil)
 
@@ -123,9 +224,16 @@ Popup/Icon**, damit keine zweiten Checkboxen mit doppelten IDs im Menü nötig s
 - Reine On-Page-Sache, kein Cloud-Sync, kein Push - Tim wollte hier bewusst erstmal
   keine grosse Detailtiefe bei der Wiederholungslogik ("nicht so detailliert wie Apple
   Erinnerungen").
-- **Icon:** gefüllte Flamme (`flammeSvg(groesse)` in app.js, `fill="currentColor"`,
-  kein Strich-Icon mehr), Grösse variabel - oben rechts nur die kleine Tages-Flamme
-  (bewusst NUR diese, nicht Woche/Monat - das wollte Tim explizit so).
+- **Icon:** gefüllte Flamme MIT echtem Ausschnitt in der Mitte (zwei Pfade in einem
+  `<path>`, `fill-rule="evenodd"` macht den inneren Pfad zu einem Loch statt ihn zu
+  füllen - zeigt also automatisch die Hintergrundfarbe dahinter, passt sich Dark/Light
+  Mode und verschiedenen Hintergründen von selbst an). `flammeSvg(groesse)` in app.js
+  für die Kacheln, dieselbe Pfad-Definition auch hart codiert im `<button>` oben rechts
+  in index.html (dort MUSS sie synchron gehalten werden, falls sich das Icon nochmal
+  ändert). Tim hatte eine Referenz-Skizze geschickt (schwarze Flamme mit weissem
+  Loch) - erste Version von uns war eine reine Silhouette ohne Loch, das war falsch.
+  Oben rechts nur die kleine Tages-Flamme (bewusst NUR diese, nicht Woche/Monat - das
+  wollte Tim explizit so).
 - **Kachel-Layout im Menü** (`renderFlaemmchenDetail()`): eine grosse Kachel oben für
   den Tag, darunter zwei kleinere nebeneinander für Woche/Monat
   (`.flaemmchen-kacheln`/`.flaemmchen-kachel-reihe`). Das Popup (Icon oben rechts)
@@ -175,6 +283,11 @@ geht wie überall sonst direkt zur Hauptliste.
   über `todos.indexOf(t)` (Objekt-Referenz), NICHT über die Position in der
   gefilterten/gruppierten Teilliste - sonst würden Klicks in einer Gruppe die falschen
   Einträge treffen.
+- **Direkt abhakbar in der Übersicht:** `renderFolderListe(containerId, folder, leerText)`
+  ist die gemeinsame Render-Funktion für `hausaufgaben-liste` UND `lernplan-liste` -
+  zeigt eine echte, klickbare Checkbox pro Eintrag (nicht mehr nur ein statisches "✓").
+  Tim wollte das explizit für Hausaufgaben ("sonst bin ich nicht sicher, was ich schon
+  gemacht habe"), wurde aus Konsistenzgründen gleich auch für Lernplan mitgemacht.
 - **Schnellzugriff:** eigenes Icon oben rechts (`#hausaufgaben-shortcut-btn`,
   `right: 180px`), springt direkt in `schule-hausaufgaben`, ohne über "Schule" zu
   navigieren. **Bewusst NUR für Hausaufgaben, nicht für Lernplan** - Tim hat das
@@ -206,6 +319,12 @@ Aktualisiert zusätzlich das `<meta name="theme-color">` (Browser-Chrome-Farbe a
 Mobile) passend mit. **Falls neue Farben hinzukommen:** immer als CSS-Variable in
 beiden `:root`-Blöcken definieren, nie als hartkodierten Hex-Wert - sonst bricht der
 helle Modus an der Stelle.
+
+**Bugfix:** `--overlay-bg` (Menü-Hintergrund) war ursprünglich `rgba(...)` mit leichter
+Transparenz (0.92/0.96). Tim empfand das im hellen Modus als "Fenster-Effekt" (man sieht
+die Hauptseite noch leicht durchschimmern). Jetzt volldeckend (`#050505` dunkel /
+`#fbfbfb` hell, kein Alpha-Kanal mehr) - Menü wirkt wie eine eigene Seite, nicht wie eine
+durchsichtige Ebene darüber.
 
 ## Abend-Erinnerung
 
@@ -308,6 +427,17 @@ Event-Listenern enthält.**
   zeigt. Klick darauf öffnet wieder das Bearbeiten-Popup.
 - Leerer Text → Post-it verschwindet automatisch wieder, nur das Stift-Icon bleibt.
 - Lösch-Kreuz (✕) im Popup hat extra grosse (unsichtbare) Tap-Fläche für Mobile.
+- **Post-it nur sichtbar, wenn ein Text drinsteht** (sonst nur das kleine Stift-Icon
+  oben) - siehe Abschnitt "Notiz-Post-it: nur sichtbar mit Text" weiter unten für die
+  kurze Geschichte dazu, war zwischenzeitlich anders.
+- **Bug gefixt:** Klick aufs Post-it öffnete das Popup, aber ein globaler
+  Klick-ausserhalb-schliesst-Listener (`document.addEventListener("click", ...)`) hat es
+  im selben Klick sofort wieder zugemacht, weil der Klick vom Post-it zum `document`
+  hochgeblubbert ist. Gefixt mit `e.stopPropagation()` im Post-it-Klick-Handler (genau wie
+  der Notiz-Button `btn` das schon hatte). **Bei neuen "Icon/Fläche öffnet ein Popup"-
+  Mustern IMMER daran denken:** wenn es einen globalen Klick-ausserhalb-schliesst-Listener
+  gibt, braucht der ÖFFNEN-Klick `e.stopPropagation()`, sonst schliesst er sich sofort
+  wieder selbst.
 - **Zusätzlich in der To-Do-Liste angeheftet:** `renderTodo()` zeigt, falls eine Notiz
   gespeichert ist, ganz oben einen optisch abgesetzten Pin-Eintrag (`#todo-notiz-pin`)
   mit dem Notiz-Text. Klick darauf schliesst das Menü und öffnet das Notiz-Popup.
@@ -330,11 +460,9 @@ eine Unteransicht mehr (war ein früherer Kritikpunkt von Tim).
 
 **Öffnen/Schliessen per Wisch-Geste:** `setupSwipeMenu()` in app.js hört global auf
 `touchstart`/`touchend`. Nach links wischen (Finger bewegt sich nach links) öffnet das
-Menü, nach rechts wischen schliesst es - unabhängig vom aktuellen Zustand. Ignoriert
-bewusst Wischen, das auf `#radar-map`, `.radar-controls`, `.leaflet-container` oder
-einem `input[type=range]` beginnt, damit Regenradar-Bedienung nicht versehentlich das
-Menü umschaltet. Schwelle: mind. 60px horizontal UND deutlich mehr horizontal als
-vertikal (sonst würde normales Scrollen das Menü mit auslösen). Passend dazu hat
+Menü, nach rechts wischen schliesst es - unabhängig vom aktuellen Zustand. Schwelle:
+mind. 60px horizontal UND deutlich mehr horizontal als vertikal (sonst würde normales
+Scrollen das Menü mit auslösen). Passend dazu hat
 `.menu-overlay` jetzt eine Slide-Transition (`transform: translateX(...)` statt
 `display: none/flex`), damit es sich beim Öffnen/Schliessen sichtbar von rechts
 hinein-/hinausschiebt.
@@ -370,12 +498,9 @@ erzwungen (kurze Seiten haben sonst nicht genug Scroll-Weg für die letzten Sekt
 
 ## Bekannte offene Punkte / Rückstand (nach Priorität von Tim)
 
-1. ~~**Hausaufgabenmanager** + **Lernplanmanager**~~ – gebaut und getestet, siehe
-   eigener Abschnitt "Schule-Untermenü, Hausaufgaben- & Lernplanmanager" unten.
-   **WICHTIG: Der Lernplan-Teil war zum Zeitpunkt des Bauens noch nicht committet/
-   gepusht** - Tim hatte explizit gesagt "das bitte noch nicht committen", während er
-   die Idee beschrieben hat. Bevor du hier weiterarbeitest: mit `git log`/`git status`
-   prüfen, ob das inzwischen committet wurde, und Tim fragen falls unklar.
+1. ~~**Hausaufgabenmanager** + **Lernplanmanager**~~ – gebaut, getestet UND committet/
+   gepusht, siehe eigener Abschnitt "Schule-Untermenü, Hausaufgaben- & Lernplanmanager"
+   unten.
 2. Bus-Berechnung: 10-Min-Vorlauf vor Unterrichtsbeginn einbauen (siehe oben)
 3. Sprache Deutsch/Englisch umschaltbar
 4. Tastenkombination am PC (**technisch nur möglich, wenn der Tab schon offen ist** –

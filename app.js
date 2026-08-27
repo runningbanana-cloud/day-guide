@@ -13,12 +13,16 @@ const BUS_ICON_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none
   <path d="M17 20v-2"></path>
 </svg>`;
 
-function init() {
+// Alles, was sich mit der Zeit ändert (Tagesphase, Wetter, Bus, News, Erinnerungen
+// ...) - beliebig oft sicher aufrufbar, hängt KEINE neuen Event-Listener an.
+// Getrennt von init(), damit wir das beim Zurückkommen aus dem Hintergrund
+// (siehe visibilitychange unten) erneut aufrufen können, ohne alle Klick-
+// Listener ein zweites Mal anzuhängen.
+function aktualisiereInhalt() {
   setGreetingAndDate();
   const phase = getTagesPhase();
   updateWeckerHinweis();
   updateSportHinweis(phase);
-  loadNotiz();
   applyTimeOfDayLayout(phase);
   loadWeather();
   handleBusSection(phase);
@@ -26,14 +30,33 @@ function init() {
   loadLessons(phase === "wochenende");
   loadExams();
   loadNews();
+  handleLeseErinnerung(phase);
+  handleHausaufgabenErinnerung(phase);
+  renderHausaufgabenWidget();
+  renderKalenderWidget();
+  aktualisiereFlaemmchenInhalt();
+  updateFavicon();
+}
+
+function init() {
+  aktualisiereInhalt();
+  loadNotiz();
   setupScrollReveal();
   setupMenu();
   setupSwipeMenu();
-  handleLeseErinnerung(phase);
-  handleHausaufgabenErinnerung(phase);
   setupFlaemmchen();
-  updateFavicon();
   setInterval(updateFavicon, 30 * 60 * 1000); // alle 30 Min. neu zeichnen
+
+  // iOS friert eine als App gespeicherte Seite im Hintergrund ein, statt sie
+  // laufen zu lassen oder neu zu laden - beim Zurückkommen (z. B. nach dem
+  // Schulende, wenn sich die Tagesphase geändert hat) sonst alles veraltet,
+  // bis man manuell neu lädt. visibilitychange feuert zuverlässig, sobald die
+  // Seite wieder sichtbar wird, und aktualisiert dann alles Zeitabhängige.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      aktualisiereInhalt();
+    }
+  });
 }
 
 // --- Easter Egg: Der Punkt auf dem Tabbogen-Icon wandert mit der Uhrzeit ---
@@ -159,7 +182,10 @@ function loadNotiz() {
     e.stopPropagation();
     popup.style.display = popup.style.display === "none" ? "block" : "none";
   });
-  postitSection.addEventListener("click", popupOeffnen);
+  postitSection.addEventListener("click", (e) => {
+    e.stopPropagation();
+    popupOeffnen();
+  });
   document.addEventListener("click", (e) => {
     if (popup.style.display !== "none" && !popup.contains(e.target) && e.target !== btn) {
       popup.style.display = "none";
@@ -193,6 +219,9 @@ function loadNotiz() {
   });
 }
 
+// Post-it nur sichtbar, wenn wirklich ein Text drinsteht (ohne Text nur das
+// kleine Stift-Icon oben) - Klick aufs Post-it öffnet dann direkt das
+// Bearbeiten-Popup, ohne dass man nochmal aufs Icon gehen muss.
 function updatePostit(section, textEl, text) {
   if (text) {
     textEl.textContent = text;
@@ -334,8 +363,9 @@ function flaemmchenUmschalten(einheit, erledigt) {
 // Gefüllte Flamme (kein Strich-Icon), Grösse variabel - genutzt für die
 // Kachel-Ansicht im Menü (gross für Tag, kleiner für Woche/Monat).
 function flammeSvg(groesse) {
-  return `<svg width="${groesse}" height="${groesse}" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2c-1.5 3 .3 4.7-1.3 7.3C9.3 11.6 7.5 13 7.5 16a4.5 4.5 0 0 0 9 0c0-1.2-.4-2.3-1-3.2.5 1.8-.4 3.1-1.8 3.1.9-2.2-.4-3.8-1.2-4.8-.3 1.6-1.7 2.2-1.4 3.7-1.1-1.1-1.5-3-.4-4.7C11.6 8.8 13.6 5.8 12 2z"></path>
+  return `<svg width="${groesse}" height="${groesse}" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd">
+    <path d="M12.5 2.2c1.3 2.8-.7 4.6-2.4 6.8-1.9 2.5-3.4 4.6-3.4 7.3a5.3 5.3 0 0 0 10.6.4c.1-1.8-.5-3.2-1.2-4.4.6 2.3-.7 3.6-2.1 3.4 1.3-2.1.1-4-1-5.3-.2 2-1.6 2.8-1.4 4.6-1.5-1.4-2-3.6-.8-5.7.9-1.6 2.4-3.7 1.7-7.1z
+    M12.3 13c-.9 1.1-1.6 2.2-1.6 3.6 0 1.7 1.3 2.9 2.9 2.7 1.4-.2 2.4-1.5 2.2-2.9-.1-.7-.4-1.3-.8-1.8.2 1.1-.5 1.8-1.3 1.7.6-1.3-.2-2.3-1-2.9.1.9-.6 1.4-.4 2.2-.7-.7-1.1-1.7-.1-2.6z"></path>
   </svg>`;
 }
 
@@ -348,11 +378,14 @@ function schliesseFlaemmchenPopup() {
   document.getElementById("flaemmchen-popup").style.display = "none";
 }
 
-function setupFlaemmchen() {
-  const btn = document.getElementById("flaemmchen-btn");
+// Inhalt neu berechnen (Aufgaben-Texte, Streaks, Vorschau-Sichtbarkeit) - sicher
+// beliebig oft aufrufbar, hängt KEINE Event-Listener an. Wichtig für den
+// Seiten-Refresh bei visibilitychange (siehe aktualisiereInhalt() unten):
+// Tageswechsel im Hintergrund (App auf dem iPhone lange nicht angeschaut) soll
+// hierüber nachgezogen werden, ohne setupFlaemmchen() nochmal aufzurufen
+// (das würde alle Klick-Listener doppelt anhängen).
+function aktualisiereFlaemmchenInhalt() {
   const badge = document.getElementById("flaemmchen-streak-badge");
-  const popup = document.getElementById("flaemmchen-popup");
-  const closeBtn = document.getElementById("flaemmchen-close");
   const streakText = document.getElementById("flaemmchen-streak-text");
   const previewSection = document.getElementById("section-flaemmchen-preview");
   const previewText = document.getElementById("flaemmchen-preview-text");
@@ -374,26 +407,17 @@ function setupFlaemmchen() {
     monat: document.getElementById("flaemmchen-monat-streak"),
   };
 
-  function aktualisiereAnzeige() {
-    ["tag", "woche", "monat"].forEach(einheit => {
-      const streak = flaemmchenAngezeigterStreak(einheit);
-      streakLabels[einheit].textContent = streak > 0 ? `· ${streak}` : "";
-    });
-    const tagesStreak = flaemmchenAngezeigterStreak("tag");
-    badge.textContent = tagesStreak > 0 ? String(tagesStreak) : "";
-    streakText.textContent = tagesStreak === 1 ? "1 Tag Streak" : `${tagesStreak} Tage Streak`;
-    previewStreak.textContent = tagesStreak > 0 ? ` · ${tagesStreak} Tage Streak` : "";
-  }
-
   ["tag", "woche", "monat"].forEach(einheit => {
     const cfg = FLAEMMCHEN_EINHEITEN[einheit];
     checkboxen[einheit].checked = localStorage.getItem(cfg.letzterKey) === cfg.aktuellerSchluessel();
-    checkboxen[einheit].addEventListener("change", () => {
-      flaemmchenUmschalten(einheit, checkboxen[einheit].checked);
-      aktualisiereAnzeige();
-    });
+    const streak = flaemmchenAngezeigterStreak(einheit);
+    streakLabels[einheit].textContent = streak > 0 ? `· ${streak}` : "";
   });
-  aktualisiereAnzeige();
+
+  const tagesStreak = flaemmchenAngezeigterStreak("tag");
+  badge.textContent = tagesStreak > 0 ? String(tagesStreak) : "";
+  streakText.textContent = tagesStreak === 1 ? "1 Tag Streak" : `${tagesStreak} Tage Streak`;
+  previewStreak.textContent = tagesStreak > 0 ? ` · ${tagesStreak} Tage Streak` : "";
 
   // Vorschau auf der Hauptseite: einmal pro Tag offen, danach nur noch das Icon
   // (gleiches Prinzip wie Wetter/News, die sich nach dem ersten Anschauen reduzieren)
@@ -404,6 +428,27 @@ function setupFlaemmchen() {
   } else {
     previewSection.style.display = "none";
   }
+}
+
+function setupFlaemmchen() {
+  const btn = document.getElementById("flaemmchen-btn");
+  const popup = document.getElementById("flaemmchen-popup");
+  const closeBtn = document.getElementById("flaemmchen-close");
+  const previewSection = document.getElementById("section-flaemmchen-preview");
+  const checkboxen = {
+    tag: document.getElementById("flaemmchen-tag-checkbox"),
+    woche: document.getElementById("flaemmchen-woche-checkbox"),
+    monat: document.getElementById("flaemmchen-monat-checkbox"),
+  };
+
+  aktualisiereFlaemmchenInhalt();
+
+  ["tag", "woche", "monat"].forEach(einheit => {
+    checkboxen[einheit].addEventListener("change", () => {
+      flaemmchenUmschalten(einheit, checkboxen[einheit].checked);
+      aktualisiereFlaemmchenInhalt();
+    });
+  });
 
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -510,11 +555,19 @@ function getTagesPhase() {
 }
 
 // --- Steuert, welche Bus-Ansicht gezeigt wird: Hinweg, ausgeblendet (Unterricht) oder Heimweg ---
+// Ab dieser Breite gilt die Desktop-Ansicht (siehe Media Query in index.html).
+// Tim nutzt den PC laut eigener Aussage erst während/gegen Ende der Schule,
+// nicht morgens davor - daher dort keine Morgenroutine/Hinweg-Bus, aber der
+// Heimweg-Bus bleibt (kurz vor Schulschluss evtl. noch relevant).
+function istDesktopBreite() {
+  return window.matchMedia("(min-width: 900px)").matches;
+}
+
 function handleBusSection(phase) {
   const bus = document.getElementById("section-bus");
   const label = document.getElementById("bus-label");
 
-  if (phase === "vor" || phase === "keineLektionen") {
+  if ((phase === "vor" || phase === "keineLektionen") && !istDesktopBreite()) {
     bus.style.display = "";
     label.innerHTML = `${BUS_ICON_SVG} Weg zur Kanti <span class="live-dot"></span>`;
     loadBusHinweg();
@@ -628,7 +681,7 @@ function applyTimeOfDayLayout(phase) {
   const hour = new Date().getHours();
   const istMorgen = hour < 13;
 
-  if (phase === "vor") {
+  if (phase === "vor" && !istDesktopBreite()) {
     morgenroutine.style.display = "";
     renderMorgenroutine();
   }
@@ -689,16 +742,7 @@ async function loadWeather() {
       </div>
       ${naechsteStunde ? `<div class="weather-desc" style="margin-top:2px;">Nächste Stunde: ${naechsteStunde}</div>` : ""}
       <div class="toggle-hint">Mehr Prognose</div>
-      <div class="expanded" style="display:none;"></div>
-      <div class="toggle-hint" id="radar-toggle" style="margin-top:6px;">Regenradar</div>
-      <div class="radar-container" id="radar-container" style="display:none;">
-        <div id="radar-map"></div>
-        <div class="radar-controls">
-          <span class="radar-time" id="radar-time">–</span>
-          <input type="range" class="radar-slider" id="radar-slider" min="0" max="0" value="0">
-        </div>
-        <div class="radar-credit">Karte: OpenStreetMap, CARTO · Regen: RainViewer</div>
-      </div>`;
+      <div class="expanded" style="display:none;"></div>`;
 
     function render() {
       el.className = "";
@@ -739,21 +783,6 @@ function wireWeatherToggles(data) {
       hint.textContent = "Weniger anzeigen";
     }
   });
-
-  const radarHint = document.getElementById("radar-toggle");
-  const radarContainer = document.getElementById("radar-container");
-  radarHint.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const geoeffnet = radarContainer.style.display !== "none";
-    if (geoeffnet) {
-      radarContainer.style.display = "none";
-      radarHint.textContent = "Regenradar";
-    } else {
-      radarContainer.style.display = "block";
-      radarHint.textContent = "Regenradar ausblenden";
-      initRadarMap();
-    }
-  });
 }
 
 // --- Hilfsfunktion: Datum/Zeit-Strings von Open-Meteo (ohne Zeitzone) sicher
@@ -777,71 +806,6 @@ function getNaechsteStundeText(data) {
   const idx = data.hourly.time.findIndex(t => t.startsWith(praefix));
   if (idx === -1) return null;
   return weatherCodeToText(data.hourly.weather_code[idx]);
-}
-
-// --- Regenradar mit Zeitschieberegler (RainViewer, kostenlos, kein Key nötig) ---
-async function initRadarMap() {
-  const mapDiv = document.getElementById("radar-map");
-  if (mapDiv.dataset.initialisiert) return; // nur einmal laden
-  mapDiv.dataset.initialisiert = "1";
-
-  try {
-    const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-    const daten = await res.json();
-    const frames = [...(daten.radar.past || []), ...(daten.radar.nowcast || [])];
-
-    if (frames.length === 0) {
-      mapDiv.textContent = "Keine Radar-Daten verfügbar.";
-      return;
-    }
-
-    const map = L.map("radar-map", { zoomControl: false, attributionControl: false })
-      .setView([WEATHER_LOCATION.lat, WEATHER_LOCATION.lon], 7);
-
-    // Dunkle Kartenunterlage mit Ortsnamen/Grenzen zur Orientierung
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      maxZoom: 12,
-      attribution: "© OpenStreetMap, © CARTO",
-    }).addTo(map);
-
-    // Eigene "Pane" für den Radar-Layer, damit wir per CSS-Filter aus den
-    // Farben ein Schwarz-Weiss-Bild machen: Grauwerte + Invertierung.
-    // Da stärkerer Regen bei RainViewer dunklere, gesättigtere Farben hat,
-    // wird er nach der Invertierung automatisch heller/weisser.
-    map.createPane("radarPane");
-    map.getPane("radarPane").style.filter = "grayscale(1) invert(1) contrast(1.3) brightness(1.1)";
-
-    const tileSize = 256;
-    let radarLayer = null;
-
-    function zeigeFrame(index) {
-      const frame = frames[index];
-      const url = `${daten.host}${frame.path}/${tileSize}/{z}/{x}/{y}/2/1_1.png`;
-      if (!radarLayer) {
-        // maxNativeZoom: RainViewer liefert Kacheln nur bis Stufe 7. Zoomt
-        // man weiter rein, vergrössert Leaflet automatisch die letzte
-        // verfügbare Kachel, statt eine "nicht unterstützt"-Meldung zu holen.
-        radarLayer = L.tileLayer(url, { opacity: 0.85, pane: "radarPane", maxNativeZoom: 7, maxZoom: 12 }).addTo(map);
-      } else {
-        radarLayer.setUrl(url);
-      }
-      document.getElementById("radar-time").textContent =
-        new Date(frame.time * 1000).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
-    }
-
-    const slider = document.getElementById("radar-slider");
-    slider.max = frames.length - 1;
-    const jetztIndex = Math.max((daten.radar.past || []).length - 1, 0);
-    slider.value = jetztIndex;
-    zeigeFrame(jetztIndex);
-
-    slider.addEventListener("input", () => zeigeFrame(Number(slider.value)));
-
-    // Karte war beim Erstellen unsichtbar (display:none) -> Grösse neu berechnen
-    setTimeout(() => map.invalidateSize(), 100);
-  } catch (err) {
-    mapDiv.textContent = "Regenradar konnte nicht geladen werden.";
-  }
 }
 
 function buildWeatherForecastHtml(data) {
@@ -1654,6 +1618,7 @@ function setupHausaufgabenManager() {
 
     todoHinzufuegenMitFolder(beschreibung, "hausaufgaben", datum);
     kalenderNotizErgaenzen(datum, `Hausaufgabe ${beschreibung}`);
+    renderKalenderWidget();
 
     document.getElementById("ha-seite-von").value = "";
     document.getElementById("ha-seite-bis").value = "";
@@ -1664,16 +1629,43 @@ function setupHausaufgabenManager() {
   });
 }
 
-function renderHausaufgabenListe() {
-  const el = document.getElementById("hausaufgaben-liste");
-  const eintraege = ladeTodos().filter(t => t.folder === "hausaufgaben");
+// Gemeinsame Render-Funktion für die Hausaufgaben-/Lernplan-Übersicht -
+// mit echter, klickbarer Checkbox (Tim wollte hier direkt abhaken können,
+// nicht nur über die To-Do-Liste). Index wieder über Objekt-Referenz, wie
+// in renderTodo() - siehe Kommentar dort.
+function renderFolderListe(containerId, folder, leerText, nurOffene = false) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const todos = ladeTodos();
+  let eintraege = todos.filter(t => t.folder === folder);
+  if (nurOffene) eintraege = eintraege.filter(t => !t.done);
+
   el.innerHTML = eintraege.length === 0
-    ? `<div class="empty">Keine Hausaufgaben eingetragen.</div>`
-    : eintraege.map(t => `
-      <div class="lesson-row">
-        <span>${t.text}${t.done ? " ✓" : ""}</span>
-        <span class="lesson-time">${t.due ? formatDatumKurz(t.due) : ""}</span>
-      </div>`).join("");
+    ? `<div class="empty">${leerText}</div>`
+    : eintraege.map(t => {
+      const i = todos.indexOf(t);
+      return `
+        <label class="checklist-row todo-row${t.done ? " done" : ""}">
+          <input type="checkbox" data-i="${i}">
+          <span style="flex:1;">${t.text}</span>
+          <span class="lesson-time">${t.due ? formatDatumKurz(t.due) : ""}</span>
+        </label>`;
+    }).join("");
+
+  el.querySelectorAll("input[type=checkbox]").forEach(cb => {
+    if (todos[cb.dataset.i].done) cb.checked = true;
+    cb.addEventListener("change", () => {
+      const aktuelleTodos = ladeTodos();
+      aktuelleTodos[cb.dataset.i].done = cb.checked;
+      speichereTodos(aktuelleTodos);
+      renderFolderListe(containerId, folder, leerText, nurOffene);
+      renderTodo();
+    });
+  });
+}
+
+function renderHausaufgabenListe() {
+  renderFolderListe("hausaufgaben-liste", "hausaufgaben", "Keine Hausaufgaben eingetragen.");
 }
 
 // --- Lernplanmanager: Fach -> was lernen -> Datum, zeigt zusätzlich die
@@ -1701,6 +1693,7 @@ function setupLernplanManager() {
     const beschreibung = `${fach}: ${was}`;
     todoHinzufuegenMitFolder(beschreibung, "lernplan", datum);
     kalenderNotizErgaenzen(datum, `Lernplan ${beschreibung}`);
+    renderKalenderWidget();
 
     document.getElementById("lp-text").value = "";
     document.getElementById("lp-datum").value = "";
@@ -1710,15 +1703,14 @@ function setupLernplanManager() {
 }
 
 function renderLernplanListe() {
-  const el = document.getElementById("lernplan-liste");
-  const eintraege = ladeTodos().filter(t => t.folder === "lernplan");
-  el.innerHTML = eintraege.length === 0
-    ? `<div class="empty">Kein Lernplan eingetragen.</div>`
-    : eintraege.map(t => `
-      <div class="lesson-row">
-        <span>${t.text}${t.done ? " ✓" : ""}</span>
-        <span class="lesson-time">${t.due ? formatDatumKurz(t.due) : ""}</span>
-      </div>`).join("");
+  renderFolderListe("lernplan-liste", "lernplan", "Kein Lernplan eingetragen.");
+}
+
+// --- Desktop-Widget (siehe Media Query in index.html, nur ab 900px sichtbar):
+// offene Hausaufgaben direkt auf der Hauptseite, ohne ins Menü zu müssen -
+// Tim nutzt den Hausaufgabenmanager öfter am PC als am Handy. ---
+function renderHausaufgabenWidget() {
+  renderFolderListe("hausaufgaben-widget-content", "hausaufgaben", "Keine offenen Hausaufgaben.", true);
 }
 
 // --- Morgen-Erinnerung: fällige/überfällige, noch nicht erledigte Hausaufgaben.
@@ -1814,19 +1806,13 @@ function setupTheme() {
 }
 
 // --- Menü per Wisch-Geste öffnen/schliessen: nach links wischen öffnet,
-// nach rechts wischen schliesst - unabhängig davon, ob es schon offen ist.
-// Ignoriert Wischen auf der Karte/dem Zeitschieberegler beim Regenradar,
-// damit das Bedienen davon nicht versehentlich das Menü umschaltet. ---
+// nach rechts wischen schliesst - unabhängig davon, ob es schon offen ist. ---
 function setupSwipeMenu() {
   const overlay = document.getElementById("menu-overlay");
   let startX = 0, startY = 0, tracking = false;
 
-  function sollIgnoriert(target) {
-    return !!target.closest("#radar-map, .radar-controls, .leaflet-container, input[type=range]");
-  }
-
   document.addEventListener("touchstart", (e) => {
-    if (e.touches.length !== 1 || sollIgnoriert(e.target)) {
+    if (e.touches.length !== 1) {
       tracking = false;
       return;
     }
@@ -1862,6 +1848,7 @@ function speichereTodos(todos) {
 }
 
 function renderTodo() {
+  renderHausaufgabenWidget(); // Desktop-Widget immer mit aktualisieren, unabhängig vom Menü-Zustand
   const list = document.getElementById("todo-list");
   if (!list) return; // vor dem ersten Menü-Öffnen noch nicht im DOM relevant
   const todos = ladeTodos();
@@ -1971,16 +1958,10 @@ function kalenderDatumKey(jahr, monat, tag) {
   return `${jahr}-${String(monat + 1).padStart(2, "0")}-${String(tag).padStart(2, "0")}`;
 }
 
-function renderKalender() {
+// Baut nur das Grid-HTML für einen Monat - genutzt sowohl von der
+// interaktiven Kalender-Ansicht im Menü als auch vom read-only Desktop-Widget.
+function kalenderGridHtml(jahr, monat) {
   const heute = new Date();
-  if (kalenderJahr === null) {
-    kalenderJahr = heute.getFullYear();
-    kalenderMonat = heute.getMonth();
-  }
-  const jahr = kalenderJahr;
-  const monat = kalenderMonat;
-  const monatsName = new Date(jahr, monat, 1).toLocaleDateString("de-CH", { month: "long", year: "numeric" });
-  document.getElementById("kalender-monat-label").textContent = monatsName;
 
   const pruefungsTage = new Set(
     PRUEFUNGEN.filter(p => {
@@ -2019,12 +2000,39 @@ function renderKalender() {
     html += `<div class="${klassen.join(" ")}" data-tag="${tag}">${tag}</div>`;
   }
   html += `</div>`;
+  return html;
+}
 
-  document.getElementById("kalender-content").innerHTML = html;
+function renderKalender() {
+  const heute = new Date();
+  if (kalenderJahr === null) {
+    kalenderJahr = heute.getFullYear();
+    kalenderMonat = heute.getMonth();
+  }
+  const jahr = kalenderJahr;
+  const monat = kalenderMonat;
+  const monatsName = new Date(jahr, monat, 1).toLocaleDateString("de-CH", { month: "long", year: "numeric" });
+  document.getElementById("kalender-monat-label").textContent = monatsName;
+
+  document.getElementById("kalender-content").innerHTML = kalenderGridHtml(jahr, monat);
 
   document.querySelectorAll("#kalender-content .kalender-tag:not(.leer)").forEach(el => {
     el.addEventListener("click", () => oeffneKalenderPopup(jahr, monat, Number(el.dataset.tag)));
   });
+}
+
+// --- Desktop-Widget (siehe Media Query in index.html): kompakter,
+// nicht-interaktiver Ausblick auf den AKTUELLEN Monat (unabhängig davon,
+// welchen Monat man sich zuletzt im Menü angeschaut hat). Ersetzt auf dem
+// Desktop die morgendlichen Sachen (Bus/Morgenroutine), die dort laut Tim
+// nicht gebraucht werden. ---
+function renderKalenderWidget() {
+  const el = document.getElementById("kalender-widget-content");
+  if (!el) return;
+  const heute = new Date();
+  const monatsName = heute.toLocaleDateString("de-CH", { month: "long", year: "numeric" });
+  document.getElementById("kalender-widget-label").textContent = `Kalender · ${monatsName}`;
+  el.innerHTML = kalenderGridHtml(heute.getFullYear(), heute.getMonth());
 }
 
 function kalenderMonatWechseln(delta) {
@@ -2062,6 +2070,7 @@ function setupKalenderPopup() {
     if (wert) notizen[key] = wert; else delete notizen[key];
     speichereKalenderNotizen(notizen);
     renderKalender();
+    renderKalenderWidget();
   });
 
   loeschen.addEventListener("click", (e) => {
@@ -2073,6 +2082,7 @@ function setupKalenderPopup() {
     text.value = "";
     popup.style.display = "none";
     renderKalender();
+    renderKalenderWidget();
   });
 
   document.addEventListener("click", (e) => {
