@@ -71,7 +71,9 @@
     font-weight: 400;
     font-variant-numeric: tabular-nums;
     min-height: 100vh;
-    padding: max(48px, calc(env(safe-area-inset-top) + 28px)) 22px 70px;
+    /* Rechts extra Platz für die vertikale Icon-Leiste (siehe .icon-reihe) -
+       deshalb 4-Wert-Schreibweise statt links=rechts wie vorher. */
+    padding: max(48px, calc(env(safe-area-inset-top) + 28px)) 74px 70px 22px;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -100,6 +102,29 @@
     gap: 6px;
     font-size: 13px;
     color: var(--text-mid);
+  }
+
+  .tagesfortschritt { margin-top: 16px; max-width: 260px; }
+  .tagesfortschritt-spur {
+    width: 100%;
+    height: 4px;
+    background: var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .tagesfortschritt-balken {
+    height: 100%;
+    width: 0%;
+    background: var(--text);
+    border-radius: 999px;
+    transition: width 0.4s ease;
+  }
+  .tagesfortschritt-label {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .section {
@@ -272,18 +297,20 @@
     white-space: pre-wrap;
     cursor: pointer;
   }
-
-  .notiz-display {
-    cursor: pointer;
-    font-family: var(--font-display);
-    font-size: 16px;
+  .notiz-postit-edit {
+    width: 100%;
+    background: transparent;
+    border: none;
     color: var(--text);
-    padding: 2px 0;
-    line-height: 1.3;
-    flex: 1;
+    font-family: var(--font-display);
+    font-size: 18px;
+    line-height: 1.4;
+    padding: 0;
+    outline: none;
+    resize: none;
   }
-  .notiz-display.empty {
-    font-family: var(--font-body);
+
+  .notiz-popup-label {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -314,15 +341,24 @@
   /* Icon-Reihe oben rechts: EIN Flex-Container statt einzeln positionierter
      Icons, damit ein ausgeblendetes Icon (z. B. Sport-Hinweis ohne Sport
      morgen) keine Lücke hinterlässt, sondern die anderen zusammenrutschen. */
+  /* Menü bleibt oben, die übrigen Icons stehen darunter als eigene Spalte -
+     beides zusammen bildet die vertikale Leiste am rechten Rand. */
   .icon-reihe {
     position: fixed;
     top: max(20px, env(safe-area-inset-top));
     right: 20px;
     z-index: 100;
     display: flex;
+    flex-direction: column;
     align-items: center;
   }
-  .icon-reihe > * {
+  .icon-spalte {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .icon-reihe > *,
+  .icon-spalte > * {
     background: none;
     border: none;
     color: var(--text);
@@ -330,6 +366,7 @@
     padding: 8px;
     display: flex;
     align-items: center;
+    justify-content: center;
   }
   .menu-btn { font-size: 20px; line-height: 1; }
   .notiz-btn { font-size: 18px; line-height: 1; }
@@ -911,31 +948,32 @@
 <div class="wrap">
 
   <div class="icon-reihe">
-    <!-- Schnellzugriff: direkt ins Hausaufgaben-Formular, ohne über Schule zu gehen -->
-    <button class="hausaufgaben-shortcut-btn" id="hausaufgaben-shortcut-btn" aria-label="Hausaufgabe hinzufügen">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path>
-        <path d="M14 3v5h5"></path>
-        <line x1="9" y1="13" x2="15" y2="13"></line>
-        <line x1="9" y1="17" x2="12" y2="17"></line>
-      </svg>
-    </button>
-
-    <!-- Flämmchen: tägliche/wöchentliche/monatliche Herausforderung + Streak -->
-    <button class="flaemmchen-btn" id="flaemmchen-btn" aria-label="Flämmchen">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd">
-        <path d="M12.5 2.2c1.3 2.8-.7 4.6-2.4 6.8-1.9 2.5-3.4 4.6-3.4 7.3a5.3 5.3 0 0 0 10.6.4c.1-1.8-.5-3.2-1.2-4.4.6 2.3-.7 3.6-2.1 3.4 1.3-2.1.1-4-1-5.3-.2 2-1.6 2.8-1.4 4.6-1.5-1.4-2-3.6-.8-5.7.9-1.6 2.4-3.7 1.7-7.1z
-        M12.3 13c-.9 1.1-1.6 2.2-1.6 3.6 0 1.7 1.3 2.9 2.9 2.7 1.4-.2 2.4-1.5 2.2-2.9-.1-.7-.4-1.3-.8-1.8.2 1.1-.5 1.8-1.3 1.7.6-1.3-.2-2.3-1-2.9.1.9-.6 1.4-.4 2.2-.7-.7-1.1-1.7-.1-2.6z"></path>
-      </svg>
-      <span id="flaemmchen-streak-badge"></span>
-    </button>
-
-    <div class="sport-hinweis-ecke" id="sport-hinweis" style="display:none;"></div>
-
-    <!-- Merkzettel: klicken zum Bearbeiten, Überschrift zeigt den Inhalt -->
-    <button class="notiz-btn" id="notiz-btn" aria-label="Notiz">✎</button>
-
     <button class="menu-btn" id="menu-btn" aria-label="Menü">☰</button>
+
+    <div class="icon-spalte">
+      <!-- Flämmchen: tägliche/wöchentliche/monatliche Herausforderung + Streak -->
+      <button class="flaemmchen-btn" id="flaemmchen-btn" aria-label="Flämmchen">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.5 2.2c1.3 2.8-.7 4.6-2.4 6.8-1.9 2.5-3.4 4.6-3.4 7.3a5.3 5.3 0 0 0 10.6.4c.1-1.8-.5-3.2-1.2-4.4.6 2.3-.7 3.6-2.1 3.4 1.3-2.1.1-4-1-5.3-.2 2-1.6 2.8-1.4 4.6-1.5-1.4-2-3.6-.8-5.7.9-1.6 2.4-3.7 1.7-7.1z"></path>
+        </svg>
+        <span id="flaemmchen-streak-badge"></span>
+      </button>
+
+      <div class="sport-hinweis-ecke" id="sport-hinweis" style="display:none;"></div>
+
+      <!-- Merkzettel: klicken zum Bearbeiten, Überschrift zeigt den Inhalt -->
+      <button class="notiz-btn" id="notiz-btn" aria-label="Notiz">✎</button>
+
+      <!-- Schnellzugriff: direkt ins Hausaufgaben-Formular, ohne über Schule zu gehen -->
+      <button class="hausaufgaben-shortcut-btn" id="hausaufgaben-shortcut-btn" aria-label="Hausaufgabe hinzufügen">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path>
+          <path d="M14 3v5h5"></path>
+          <line x1="9" y1="13" x2="15" y2="13"></line>
+          <line x1="9" y1="17" x2="12" y2="17"></line>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <div class="menu-overlay" id="menu-overlay">
@@ -1077,11 +1115,20 @@
     <div class="greeting" id="greeting">Guten Morgen</div>
     <div class="date" id="today-date"></div>
     <div class="wecker-hinweis" id="wecker-hinweis" style="display:none;"></div>
+    <!-- Tagesfortschritt: wie viel vom Schultag (erste bis letzte Lektion)
+         schon vorbei ist. Nur an Schultagen sichtbar, siehe renderTagesfortschritt(). -->
+    <div class="tagesfortschritt" id="section-tagesfortschritt" style="display:none;">
+      <div class="tagesfortschritt-spur"><div class="tagesfortschritt-balken" id="tagesfortschritt-balken"></div></div>
+      <div class="tagesfortschritt-label" id="tagesfortschritt-label"></div>
+    </div>
   </div>
 
-  <!-- Notiz als Post-it, nur sichtbar wenn wirklich was drinsteht -->
+  <!-- Notiz als Post-it, nur sichtbar wenn wirklich was drinsteht. Antippen
+       verwandelt die Kachel direkt in ein Textfeld (kein Umweg über ein Popup
+       nötig) - Tim wollte hier nur noch einen einzigen Tap zum Bearbeiten. -->
   <div class="section" id="section-notiz-postit" style="display:none;">
     <div class="notiz-postit-text" id="notiz-postit-text"></div>
+    <textarea class="notiz-postit-edit" id="notiz-postit-edit" style="display:none;" maxlength="200" rows="3"></textarea>
   </div>
 
   <!-- Nur auf breiten Bildschirmen sichtbar (siehe Media Query): Hausaufgaben
@@ -1104,12 +1151,15 @@
     <div id="flaemmchen-preview-text" class="flaemmchen-preview-text"></div>
   </div>
 
+  <!-- Popup nur noch für den Fall "keine Notiz vorhanden" (Stift-Icon oben) -
+       zeigt sofort das Textfeld, kein Zwischenschritt mehr über eine
+       Vorschau/Anzeige, die man erst extra antippen musste. -->
   <div class="notiz-popup" id="notiz-popup" style="display:none;">
     <div class="notiz-popup-head">
-      <div class="notiz-display empty" id="notiz-display">Notes</div>
+      <span class="notiz-popup-label">Notiz</span>
       <span class="notiz-loeschen" id="notiz-loeschen">✕</span>
     </div>
-    <textarea class="notiz-edit" id="notiz-edit" style="display:none;" maxlength="200" rows="3"></textarea>
+    <textarea class="notiz-edit" id="notiz-edit" maxlength="200" rows="3"></textarea>
   </div>
 
   <div class="flaemmchen-popup" id="flaemmchen-popup" style="display:none;">
@@ -1210,7 +1260,10 @@
 
 </div>
 
-<script src="data.js"></script>
-<script src="app.js"></script>
+<!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
+     zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
+     verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
+<script src="data.js?v=2"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

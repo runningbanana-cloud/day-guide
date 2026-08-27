@@ -83,6 +83,19 @@ aktuelle Phase auftauchen, bleiben unsichtbar (via `style.display = "none"`).
   ersatzlos weg. Komplett entfernt inkl. Leaflet-Includes im `<head>`. Falls das Thema
   nochmal aufkommt: einfacher/robuster neu bauen, nicht die alte Version reaktivieren.
 
+## Cache-Busting
+
+`data.js` und `app.js` werden mit `?v=1` eingebunden (in index.html). **Bei JEDEM
+Deploy diese Zahl hochzählen** (v=2, v=3, ...), sonst kann es sein, dass Tims iPhone
+(als Homescreen-App/PWA installiert) eine alte, gecachte Version der Skripte
+weiterverwendet und Änderungen nicht ankommen - ist schon mehrfach passiert und hat zu
+verwirrenden "das funktioniert nicht"-Meldungen geführt, obwohl der Code eigentlich
+schon lief. Betrifft nur die Skripte, NICHT `index.html` selbst - falls Tim meldet,
+dass sich GAR NICHTS aktualisiert (auch keine neuen HTML-Elemente/Menüpunkte
+erscheinen), liegt es am gecachten `index.html` selbst, nicht an den Skripten - dagegen
+hilft nur: die Homescreen-App entfernen und über Safari neu zur Startseite hinzufügen,
+oder in normalem Safari die Website-Daten für die Domain löschen.
+
 ## Automatischer Refresh beim Zurückkommen (iOS-PWA-Fix)
 
 Tim (App auf iPhone-Homescreen, also als PWA im "standalone"-Modus): musste bisher
@@ -178,18 +191,36 @@ selbst passen). `renderKalenderWidget()` wird nach jeder Kalender-Notiz-Änderun
 aufgerufen (Popup speichern/löschen, Hausaufgaben-/Lernplan-Formular), damit die
 Punkte für "Notiz vorhanden" synchron bleiben.
 
-## Icon-Reihe oben rechts
+## Icon-Leiste am rechten Rand (jetzt VERTIKAL)
 
-Alle Icons (Hausaufgaben-Schnellzugriff, Flämmchen, Sport-Hinweis, Notiz, Menü) sitzen
-jetzt in EINEM Flex-Container `.icon-reihe` (`position:fixed; right:20px; display:flex;`)
-statt einzeln `position:fixed` mit eigenem `right`-Wert. Grund: einzeln positioniert
-hinterliess ein ausgeblendetes Icon (z. B. Sport-Hinweis, wenn kein Sport ansteht) eine
-sichtbare Lücke, weil die anderen ihre feste Position behielten. Mit Flexbox rutschen
-die übrigen Icons automatisch zusammen, wenn eins per `display:none` verschwindet.
-**Reihenfolge in der HTML wichtig:** von links nach rechts wie sie erscheinen sollen
-(Hausaufgaben-Schnellzugriff → Flämmchen → Sport-Hinweis → Notiz → Menü ganz rechts,
-am nächsten zum Bildschirmrand). Neue Icons hier IMMER als Kind von `.icon-reihe`
-einfügen, nie wieder einzeln `position:fixed`.
+Ursprünglich eine horizontale Reihe, auf Tims Wunsch jetzt eine vertikale Spalte am
+rechten Bildschirmrand: **Menü (☰) bleibt oben, alle anderen Icons (Flämmchen,
+Sport-Hinweis, Notiz, Hausaufgaben-Schnellzugriff) stehen darunter** in einer eigenen
+`.icon-spalte` innerhalb von `.icon-reihe` (die jetzt selbst `flex-direction: column`
+hat). Beide Container nutzen Flexbox statt einzeln `position:fixed` positionierter
+Icons - Grund: ein ausgeblendetes Icon (z. B. Sport-Hinweis ohne Sport morgen)
+hinterlässt so keine Lücke, die übrigen rutschen automatisch zusammen (jetzt vertikal
+statt horizontal). **Reihenfolge in der HTML = Reihenfolge von oben nach unten.** Neue
+Icons hier IMMER als Kind von `.icon-reihe` (Menü-Ebene) oder `.icon-spalte`
+(alles andere) einfügen, nie wieder einzeln `position:fixed`.
+
+**Platz für die Leiste geschaffen:** `body` hat jetzt asymmetrisches Padding
+(`padding: TOP 74px 70px 22px;` - rechts deutlich mehr als links), damit kein
+Seiteninhalt unter die Icon-Spalte rutscht. Gilt für ALLE Bildschirmgrössen
+einheitlich (auch das Desktop-Grid), einfachste robuste Lösung statt für jede
+Sektion einzeln Rücksicht zu nehmen.
+
+## Tagesfortschritt-Balken
+
+Neben der Begrüssung (`#section-tagesfortschritt` im `.header`) - der Platz, der durch
+die vertikale Icon-Leiste oben frei wurde. Zeigt, wie viel vom Schultag (erste bis
+letzte Lektion laut `STUNDENPLAN`) bereits vorbei ist, als schmaler Balken + Prozent-
+Text. `renderTagesfortschritt(phase)` in app.js, nur sichtbar in den Phasen
+"vor"/"unterricht"/"heimweg" UND wenn heute überhaupt Lektionen anstehen (sonst gibt es
+keinen "Schultag" zum Anzeigen). War eine von mehreren vorgeschlagenen Ideen für den
+frei gewordenen Bereich - Tim hat sich für diese entschieden (Alternativen wären ein
+Live-Countdown zum nächsten Ereignis oder die Streak gross dargestellt gewesen, falls
+er das später doch noch will).
 
 ## Flämmchen (Streak-Feature, Duolingo/Snapchat-Stil)
 
@@ -224,16 +255,18 @@ Popup/Icon**, damit keine zweiten Checkboxen mit doppelten IDs im Menü nötig s
 - Reine On-Page-Sache, kein Cloud-Sync, kein Push - Tim wollte hier bewusst erstmal
   keine grosse Detailtiefe bei der Wiederholungslogik ("nicht so detailliert wie Apple
   Erinnerungen").
-- **Icon:** gefüllte Flamme MIT echtem Ausschnitt in der Mitte (zwei Pfade in einem
-  `<path>`, `fill-rule="evenodd"` macht den inneren Pfad zu einem Loch statt ihn zu
-  füllen - zeigt also automatisch die Hintergrundfarbe dahinter, passt sich Dark/Light
-  Mode und verschiedenen Hintergründen von selbst an). `flammeSvg(groesse)` in app.js
-  für die Kacheln, dieselbe Pfad-Definition auch hart codiert im `<button>` oben rechts
-  in index.html (dort MUSS sie synchron gehalten werden, falls sich das Icon nochmal
-  ändert). Tim hatte eine Referenz-Skizze geschickt (schwarze Flamme mit weissem
-  Loch) - erste Version von uns war eine reine Silhouette ohne Loch, das war falsch.
-  Oben rechts nur die kleine Tages-Flamme (bewusst NUR diese, nicht Woche/Monat - das
-  wollte Tim explizit so).
+- **Icon:** massive, einfarbige Flamme OHNE Ausschnitt in der Mitte (`fill="currentColor"`,
+  ein einzelner Pfad). `flammeSvg(groesse)` in app.js für die Kacheln, dieselbe
+  Pfad-Definition auch hart codiert im `<button>` oben rechts in index.html (dort MUSS
+  sie synchron gehalten werden, falls sich das Icon nochmal ändert). **Geschichte dazu:**
+  Tims erstes Referenzbild zeigte eine Flamme mit weissem Loch in der Mitte - damit
+  gebaut, kam bei ihm aber gar nicht gut an ("ziemlich scheisse", "ganz falsch
+  verstanden"). Neues Referenzbild von ihm zeigte eine schlichte, volle Flamme ohne
+  Loch - jetzt so umgesetzt (einfach den ohnehin vorhandenen äusseren Pfad ohne den
+  inneren Loch-Pfad verwendet, `fill-rule="evenodd"` wieder entfernt). **Falls nochmal
+  unzufrieden:** eher an der Form/Kontur selbst schrauben, nicht wieder ein Loch
+  einbauen. Oben in der Icon-Spalte nur die kleine Tages-Flamme (bewusst NUR diese,
+  nicht Woche/Monat - das wollte Tim explizit so).
 - **Kachel-Layout im Menü** (`renderFlaemmchenDetail()`): eine grosse Kachel oben für
   den Tag, darunter zwei kleinere nebeneinander für Woche/Monat
   (`.flaemmchen-kacheln`/`.flaemmchen-kachel-reihe`). Das Popup (Icon oben rechts)
@@ -438,6 +471,20 @@ Event-Listenern enthält.**
   Mustern IMMER daran denken:** wenn es einen globalen Klick-ausserhalb-schliesst-Listener
   gibt, braucht der ÖFFNEN-Klick `e.stopPropagation()`, sonst schliesst er sich sofort
   wieder selbst.
+- **Nur noch EIN Antippen zum Bearbeiten** (Tim: "ich muss auf die Notiz drücken und
+  dann auch noch aufs kleine Notes-Ding drücken" - der alte Zwei-Schritt-Ablauf
+  `notiz-display` (Vorschau, erst anklicken) → `notiz-edit` (Textfeld) ist komplett weg.
+  - **Post-it-Kachel** (`section-notiz-postit`): ein Antippen verwandelt die Kachel
+    SELBST in ein Textfeld (`notiz-postit-edit`) - kein Popup, Tim wollte ausdrücklich
+    "im Homebildschirm reinschreiben können". Blur speichert und schaltet zurück auf
+    Anzeige.
+  - **Stift-Icon-Popup** (`notiz-popup`): zeigt jetzt direkt das Textfeld, kein
+    `notiz-display`-Zwischenschritt mehr. Nur noch relevant, wenn gerade keine Notiz
+    existiert (Post-it dann unsichtbar) oder als Alternative über den Notiz-Pin in der
+    To-Do-Liste.
+  - Beide Wege schreiben in dieselbe `speichern(text)`-Hilfsfunktion in `loadNotiz()`,
+    die localStorage, Post-it-Anzeige, Popup-Textfeld-Wert und `renderTodo()` (für den
+    Notiz-Pin) synchron hält.
 - **Zusätzlich in der To-Do-Liste angeheftet:** `renderTodo()` zeigt, falls eine Notiz
   gespeichert ist, ganz oben einen optisch abgesetzten Pin-Eintrag (`#todo-notiz-pin`)
   mit dem Notiz-Text. Klick darauf schliesst das Menü und öffnet das Notiz-Popup.
@@ -513,12 +560,22 @@ erzwungen (kurze Seiten haben sonst nicht genug Scroll-Weg für die letzten Sekt
    Direkt über Obsidian technisch nicht machbar (siehe Abschnitt "Notiz" oben), müsste ein
    kleiner Cloud-Speicher-Dienst sein. Tim will das später nochmal angehen.
 9. ~~"Flämmchen"-Idee~~ – erledigt, siehe eigener Abschnitt oben.
-10. **Homescreen-Kacheln neu anordnen** – Tim möchte weg vom reinen Hoch/Runter-Scrollen,
-    stattdessen ein bisschen wie ein Raster/Grid ("verwinkelt"), z. B. Wetter neben statt
-    unter der Begrüssung, in etwa da wo früher die Wasser-Sektion war. Wichtig: soll
-    dabei übersichtlich/sortiert bleiben, kein Chaos. **Wartet auf einen Screenshot von
-    Tim** (hat er angeboten zu schicken) - noch NICHT umsetzen ohne den gesehen zu haben,
-    zu grosses Risiko für eine Layout-Änderung, die nicht passt.
+10. ~~Homescreen-Kacheln neu anordnen~~ – erledigt in Form von Desktop-Grid +
+    vertikaler Icon-Leiste + Tagesfortschritt-Balken, siehe jeweilige Abschnitte oben.
+11. **Busplan-Übersicht** – Tim möchte den festen Fahrplan (`ETAPPE1_FAHRPLAN` u. ä.
+    aus data.js) irgendwo im Menü einsehen können, auch am Vorabend (nicht nur, wenn die
+    Live-Bus-Sektion morgens sowieso schon zeigt). Noch nicht gebaut/gescoped - einfachste
+    Umsetzung wäre ein reiner Lese-Menüpunkt, der `ETAPPE1_FAHRPLAN` (und ggf. die
+    Linien-Infos für Etappe 2/Heimweg) als Tabelle auflistet.
+12. **Belohnungssystem fürs Flämmchen** – Tim: "z. B. einen Film anschauen dürfen" bei
+    Streak-Meilensteinen. Noch sehr vage - vor dem Bauen klären: welche Meilensteine
+    (z. B. 7/30/100 Tage?), was für Belohnungen (frei eintragbar durch Tim, oder feste
+    Vorschläge?), ist es nur eine Anzeige/Erinnerung oder eine Art Freischaltung.
+13. **Tastenkombination am PC** – siehe Punkt 4 weiter oben, gleiche technische
+    Einschränkung gilt weiterhin (nur möglich, wenn der Tab schon offen ist).
+14. **Geräteübergreifende Synchronisierung** (Notiz + generell) – siehe Abschnitt "Notiz"
+    oben ("Zurückgestellt"). Tim hat das nochmal angesprochen, weiterhin ungeklärt/nicht
+    gebaut, bräuchte einen Cloud-Speicher-Dienst.
 
 ## Wichtige Vorlieben von Tim (Chat-Kontext, evtl. weniger relevant für Claude Code)
 

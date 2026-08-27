@@ -23,6 +23,7 @@ function aktualisiereInhalt() {
   const phase = getTagesPhase();
   updateWeckerHinweis();
   updateSportHinweis(phase);
+  renderTagesfortschritt(phase);
   applyTimeOfDayLayout(phase);
   loadWeather();
   handleBusSection(phase);
@@ -160,31 +161,46 @@ function setupScrollReveal() {
 
 // --- Merkzettel: kleines Icon oben rechts öffnet ein Popup zum Bearbeiten,
 // zusätzlich erscheint ein Post-it ganz oben, sobald wirklich was drinsteht ---
+// Zwei Bearbeiten-Wege, beide nur noch EIN Antippen: das Stift-Icon (Popup,
+// vor allem wenn gerade keine Notiz existiert) und die Post-it-Kachel auf dem
+// Hauptbildschirm (verwandelt sich direkt in ein Textfeld, kein Popup nötig -
+// Tim wollte hier ausdrücklich "im Homebildschirm reinschreiben können").
 function loadNotiz() {
-  const display = document.getElementById("notiz-display");
-  const edit = document.getElementById("notiz-edit");
   const btn = document.getElementById("notiz-btn");
   const popup = document.getElementById("notiz-popup");
+  const popupEdit = document.getElementById("notiz-edit");
   const loeschen = document.getElementById("notiz-loeschen");
   const postitSection = document.getElementById("section-notiz-postit");
   const postitText = document.getElementById("notiz-postit-text");
-  const gespeichert = localStorage.getItem("dayguide_notiz") || "";
+  const postitEdit = document.getElementById("notiz-postit-edit");
 
-  updateNotizDisplay(display, gespeichert);
-  updatePostit(postitSection, postitText, gespeichert);
-  edit.value = gespeichert;
-
-  function popupOeffnen() {
-    popup.style.display = "block";
+  function aktuellerText() {
+    return localStorage.getItem("dayguide_notiz") || "";
   }
+
+  function speichern(text) {
+    localStorage.setItem("dayguide_notiz", text);
+    updatePostit(postitSection, postitText, text);
+    popupEdit.value = text;
+    renderTodo();
+  }
+
+  popupEdit.value = aktuellerText();
+  updatePostit(postitSection, postitText, aktuellerText());
 
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
-    popup.style.display = popup.style.display === "none" ? "block" : "none";
+    const offen = popup.style.display === "block";
+    popup.style.display = offen ? "none" : "block";
+    if (!offen) {
+      popupEdit.value = aktuellerText();
+      popupEdit.focus();
+    }
   });
-  postitSection.addEventListener("click", (e) => {
+  popupEdit.addEventListener("blur", () => speichern(popupEdit.value.trim()));
+  loeschen.addEventListener("click", (e) => {
     e.stopPropagation();
-    popupOeffnen();
+    speichern("");
   });
   document.addEventListener("click", (e) => {
     if (popup.style.display !== "none" && !popup.contains(e.target) && e.target !== btn) {
@@ -192,30 +208,18 @@ function loadNotiz() {
     }
   });
 
-  display.addEventListener("click", () => {
-    display.style.display = "none";
-    edit.style.display = "block";
-    edit.focus();
-  });
-
-  edit.addEventListener("blur", () => {
-    const text = edit.value.trim();
-    localStorage.setItem("dayguide_notiz", text);
-    updateNotizDisplay(display, text);
-    updatePostit(postitSection, postitText, text);
-    edit.style.display = "none";
-    display.style.display = "block";
-    popup.style.display = "none";
-    renderTodo();
-  });
-
-  loeschen.addEventListener("click", (e) => {
+  postitSection.addEventListener("click", (e) => {
     e.stopPropagation();
-    localStorage.setItem("dayguide_notiz", "");
-    edit.value = "";
-    updateNotizDisplay(display, "");
-    updatePostit(postitSection, postitText, "");
-    renderTodo();
+    if (postitEdit.style.display === "block") return; // schon im Bearbeiten-Modus
+    postitText.style.display = "none";
+    postitEdit.style.display = "block";
+    postitEdit.value = aktuellerText();
+    postitEdit.focus();
+  });
+  postitEdit.addEventListener("blur", () => {
+    speichern(postitEdit.value.trim());
+    postitEdit.style.display = "none";
+    postitText.style.display = "block";
   });
 }
 
@@ -363,9 +367,8 @@ function flaemmchenUmschalten(einheit, erledigt) {
 // Gefüllte Flamme (kein Strich-Icon), Grösse variabel - genutzt für die
 // Kachel-Ansicht im Menü (gross für Tag, kleiner für Woche/Monat).
 function flammeSvg(groesse) {
-  return `<svg width="${groesse}" height="${groesse}" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd">
-    <path d="M12.5 2.2c1.3 2.8-.7 4.6-2.4 6.8-1.9 2.5-3.4 4.6-3.4 7.3a5.3 5.3 0 0 0 10.6.4c.1-1.8-.5-3.2-1.2-4.4.6 2.3-.7 3.6-2.1 3.4 1.3-2.1.1-4-1-5.3-.2 2-1.6 2.8-1.4 4.6-1.5-1.4-2-3.6-.8-5.7.9-1.6 2.4-3.7 1.7-7.1z
-    M12.3 13c-.9 1.1-1.6 2.2-1.6 3.6 0 1.7 1.3 2.9 2.9 2.7 1.4-.2 2.4-1.5 2.2-2.9-.1-.7-.4-1.3-.8-1.8.2 1.1-.5 1.8-1.3 1.7.6-1.3-.2-2.3-1-2.9.1.9-.6 1.4-.4 2.2-.7-.7-1.1-1.7-.1-2.6z"></path>
+  return `<svg width="${groesse}" height="${groesse}" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12.5 2.2c1.3 2.8-.7 4.6-2.4 6.8-1.9 2.5-3.4 4.6-3.4 7.3a5.3 5.3 0 0 0 10.6.4c.1-1.8-.5-3.2-1.2-4.4.6 2.3-.7 3.6-2.1 3.4 1.3-2.1.1-4-1-5.3-.2 2-1.6 2.8-1.4 4.6-1.5-1.4-2-3.6-.8-5.7.9-1.6 2.4-3.7 1.7-7.1z"></path>
   </svg>`;
 }
 
@@ -504,16 +507,6 @@ function renderFlaemmchenDetail() {
   document.getElementById("flaemmchen-menu-content").innerHTML = html;
 }
 
-function updateNotizDisplay(display, text) {
-  if (text) {
-    display.textContent = text;
-    display.className = "notiz-display filled";
-  } else {
-    display.textContent = "Notes";
-    display.className = "notiz-display empty";
-  }
-}
-
 function istWochenende() {
   const tag = new Date().getDay();
   return tag === 0 || tag === 6; // Sonntag oder Samstag
@@ -529,6 +522,40 @@ function zeitHeuteAls(hhmm) {
   const d = new Date();
   d.setHours(h, m, 0, 0);
   return d;
+}
+
+// --- Tagesfortschritt: wie viel vom Schultag (erste bis letzte Lektion) schon
+// vorbei ist, als Balken neben der Begrüssung. Nur an echten Schultagen sichtbar
+// (Phasen vor/unterricht/heimweg), sonst gibt es keinen "Schultag" zum Anzeigen. ---
+function renderTagesfortschritt(phase) {
+  const el = document.getElementById("section-tagesfortschritt");
+  const balken = document.getElementById("tagesfortschritt-balken");
+  const label = document.getElementById("tagesfortschritt-label");
+
+  if (!["vor", "unterricht", "heimweg"].includes(phase)) {
+    el.style.display = "none";
+    return;
+  }
+
+  const lektionen = getHeutigeLektionen();
+  if (lektionen.length === 0) {
+    el.style.display = "none";
+    return;
+  }
+
+  const ersterStart = zeitHeuteAls(lektionen[0].time);
+  const letzte = lektionen[lektionen.length - 1];
+  const letztesEnde = zeitHeuteAls(letzte.end || letzte.time);
+  const now = new Date();
+
+  let prozent;
+  if (now <= ersterStart) prozent = 0;
+  else if (now >= letztesEnde) prozent = 100;
+  else prozent = Math.round(((now - ersterStart) / (letztesEnde - ersterStart)) * 100);
+
+  balken.style.width = `${prozent}%`;
+  label.textContent = `${prozent}% vom Schultag`;
+  el.style.display = "";
 }
 
 // --- Ermittelt die aktuelle Tagesphase: wochenende, vor, unterricht, heimweg, keineLektionen ---
@@ -1901,7 +1928,11 @@ function renderTodo() {
   if (pin) {
     pin.addEventListener("click", () => {
       document.getElementById("menu-overlay").classList.remove("open");
-      document.getElementById("notiz-popup").style.display = "block";
+      const popup = document.getElementById("notiz-popup");
+      const popupEdit = document.getElementById("notiz-edit");
+      popup.style.display = "block";
+      popupEdit.value = localStorage.getItem("dayguide_notiz") || "";
+      popupEdit.focus();
     });
   }
 
