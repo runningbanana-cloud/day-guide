@@ -904,7 +904,7 @@
       gap: 24px;
       align-items: start;
     }
-    .header { grid-column: 1 / -1; }
+    .header { grid-column: 1 / -1; grid-row: 1; }
     /* Beide Spalten EXPLIZIT zuweisen, nicht nur Spalte 2 - sonst entscheidet
        Grid-Auto-Placement bei "auto" gelassenen Boxen selbst (abhängig von der
        gerade aktuellen DOM-Reihenfolge durch applyTimeOfDayLayout), was zu
@@ -1263,7 +1263,7 @@
 <!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
      zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
      verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
-<script src="data.js?v=2"></script>
-<script src="app.js?v=2"></script>
+<script src="data.js?v=3"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

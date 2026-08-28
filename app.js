@@ -36,7 +36,43 @@ function aktualisiereInhalt() {
   renderHausaufgabenWidget();
   renderKalenderWidget();
   aktualisiereFlaemmchenInhalt();
+  aktualisiereDesktopGridZeilen();
   updateFavicon();
+}
+
+// --- Desktop-Grid (siehe Media Query in index.html): weist jeder sichtbaren
+// Sektion eine explizite grid-row zu, statt sich auf CSS Grids automatische
+// Zeilen-Platzierung zu verlassen. NÖTIG, weil applyTimeOfDayLayout() die
+// DOM-Reihenfolge der Sektionen je nach Tagesphase per wrap.append() ändert -
+// bei nur "grid-column" ohne "grid-row" wandert Grids gemeinsamer Zeilen-
+// Cursor abhängig von dieser DOM-Reihenfolge, was zu grossen, falschen Lücken
+// in einer Spalte führen kann (genau das ist Tim passiert). Mit einer für jede
+// Spalte UNABHÄNGIG hochgezählten Zeilennummer pro sichtbarer Sektion verhält
+// sich jede Spalte wie eine eigene, in sich geschlossene Liste. ---
+const SPALTE_1_IDS = [
+  "section-weather", "section-bus", "section-lessons", "section-nextlesson",
+  "section-exams", "section-morgenroutine", "section-packliste",
+  "section-abendroutine", "section-hausaufgaben-erinnerung", "section-lese-erinnerung",
+];
+const SPALTE_2_IDS = [
+  "section-notiz-postit", "section-hausaufgaben-widget", "section-kalender-widget",
+  "section-flaemmchen-preview", "section-news",
+];
+
+function aktualisiereDesktopGridZeilen() {
+  [SPALTE_1_IDS, SPALTE_2_IDS].forEach(idListe => {
+    let zeile = 2; // Zeile 1 ist für .header reserviert (grid-row:1 in CSS)
+    idListe.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (getComputedStyle(el).display === "none") {
+        el.style.gridRow = "";
+        return;
+      }
+      el.style.gridRow = String(zeile);
+      zeile++;
+    });
+  });
 }
 
 function init() {

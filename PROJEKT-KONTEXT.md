@@ -157,7 +157,29 @@ Spalte 1 zu bleiben. Regel für neue dauerhafte Sektionen: IMMER explizit `grid-
 Spalte 2 (rechts, schmaler): Notiz-Post-it, Hausaufgaben-Widget, Kalender-Widget,
 Flämmchen-Vorschau, News. Spalte 1 (links, breiter): Wetter, Bus, Stundenplan,
 Nächste-Lektion, Prüfungen, Morgenroutine, Packliste, Abendroutine,
-Hausaufgaben-Erinnerung, Lese-Erinnerung. `.header` spannt beide Spalten oben drüber.
+Hausaufgaben-Erinnerung, Lese-Erinnerung. `.header` spannt beide Spalten oben drüber
+(`grid-column: 1/-1; grid-row: 1;`).
+
+**Zweiter Bugfix, gravierender als der erste:** Auch mit `grid-column` für beide
+Spalten explizit gesetzt, blieb `grid-row` implizit ("auto") - dadurch hat sich CSS
+Grid einen GEMEINSAMEN Zeilen-Cursor über beide Spalten hinweg gemerkt, der sich nach
+der DOM-Reihenfolge aller Elemente richtet (nicht pro Spalte einzeln). Da
+`applyTimeOfDayLayout()` die DOM-Reihenfolge der Sektionen phasenabhängig per
+`wrap.append()` ändert und dabei Spalte-1- und Spalte-2-Elemente munter mischt, sprang
+dieser Cursor teils viele Zeilen weiter, bevor er wieder bei Spalte 1 ankam - Ergebnis:
+grosse, falsch aussehende Lücken oben in Spalte 1, während Spalte 2 schon oben anfing
+(Tim: "komplett unübersichtlich", hat es mit einer roten Kreis-Skizze gezeigt).
+
+**Fix:** `aktualisiereDesktopGridZeilen()` in app.js weist JEDER sichtbaren Sektion
+eine explizite `grid-row` zu, pro Spalte unabhängig hochgezählt (`SPALTE_1_IDS`/
+`SPALTE_2_IDS`-Listen, Zeile 2 aufwärts, Zeile 1 ist für `.header` reserviert). Damit
+verhält sich jede Spalte wie eine eigene, in sich geschlossene Liste - komplett
+unabhängig von der DOM-Reihenfolge/der anderen Spalte. Wird am Ende von
+`aktualisiereInhalt()` aufgerufen, NACH allen Funktionen, die Sektionen ein-/ausblenden
+(sonst wären die `display:none`-Prüfungen veraltet). **Bei neuen dauerhaften
+Sektionen im Desktop-Grid: IMMER auch in `SPALTE_1_IDS` oder `SPALTE_2_IDS` in app.js
+eintragen**, sonst bekommt die Sektion nie eine `grid-row` und das Problem kann in
+abgeschwächter Form wieder auftreten.
 
 **Hausaufgaben-Widget** (`section-hausaufgaben-widget`): NUR im Desktop-Grid sichtbar
 (per CSS `display:none` als Basis, `display:block` in der Media Query - diese
