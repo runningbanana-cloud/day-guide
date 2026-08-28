@@ -236,24 +236,28 @@ selbst passen). `renderKalenderWidget()` wird nach jeder Kalender-Notiz-Änderun
 aufgerufen (Popup speichern/löschen, Hausaufgaben-/Lernplan-Formular), damit die
 Punkte für "Notiz vorhanden" synchron bleiben.
 
-## Icon-Leiste am rechten Rand (jetzt VERTIKAL)
+## Icon-Leiste am rechten Rand: horizontal auf dem Handy, vertikal auf dem Desktop
 
-Ursprünglich eine horizontale Reihe, auf Tims Wunsch jetzt eine vertikale Spalte am
-rechten Bildschirmrand: **Menü (☰) bleibt oben, alle anderen Icons (Flämmchen,
-Sport-Hinweis, Notiz, Hausaufgaben-Schnellzugriff) stehen darunter** in einer eigenen
-`.icon-spalte` innerhalb von `.icon-reihe` (die jetzt selbst `flex-direction: column`
-hat). Beide Container nutzen Flexbox statt einzeln `position:fixed` positionierter
-Icons - Grund: ein ausgeblendetes Icon (z. B. Sport-Hinweis ohne Sport morgen)
-hinterlässt so keine Lücke, die übrigen rutschen automatisch zusammen (jetzt vertikal
-statt horizontal). **Reihenfolge in der HTML = Reihenfolge von oben nach unten.** Neue
-Icons hier IMMER als Kind von `.icon-reihe` (Menü-Ebene) oder `.icon-spalte`
-(alles andere) einfügen, nie wieder einzeln `position:fixed`.
+**Bildschirmgrössen-abhängig, nicht global!** Erste Version hatte die vertikale
+Anordnung überall (auch Handy) - Tim wollte das Handy explizit unverändert
+(ursprüngliche horizontale Reihe) und nur den Desktop vertikal.
 
-**Platz für die Leiste geschaffen:** `body` hat jetzt asymmetrisches Padding
-(`padding: TOP 74px 70px 22px;` - rechts deutlich mehr als links), damit kein
-Seiteninhalt unter die Icon-Spalte rutscht. Gilt für ALLE Bildschirmgrössen
-einheitlich (auch das Desktop-Grid), einfachste robuste Lösung statt für jede
-Sektion einzeln Rücksicht zu nehmen.
+- **Basis-Regel (Handy, < 900px):** `.icon-reihe` und `.icon-spalte` haben
+  `flex-direction: row` - alle 5 Icons stehen nebeneinander wie ursprünglich. `body`
+  hat symmetrisches Padding (`22px` links UND rechts).
+- **Media Query (Desktop, ≥ 900px):** `.icon-reihe`/`.icon-spalte` bekommen
+  `flex-direction: column` - Menü (☰) bleibt oben, Flämmchen/Sport-Hinweis/Notiz/
+  Hausaufgaben-Schnellzugriff stehen darunter in `.icon-spalte`. Zusätzlicher Platz
+  dafür kommt über das (schon für die Desktop-Kompaktierung vorhandene) `body`-Padding
+  rechts (74px statt 22px).
+
+Beide Container nutzen Flexbox statt einzeln `position:fixed` positionierter Icons -
+Grund: ein ausgeblendetes Icon (z. B. Sport-Hinweis ohne Sport morgen) hinterlässt so
+keine Lücke, die übrigen rutschen automatisch zusammen (horizontal auf dem Handy,
+vertikal auf dem Desktop). **Reihenfolge in der HTML = Reihenfolge von oben nach unten
+bzw. links nach rechts.** Neue Icons hier IMMER als Kind von `.icon-reihe`
+(Menü-Ebene) oder `.icon-spalte` (alles andere) einfügen, nie wieder einzeln
+`position:fixed`.
 
 ## Tagesfortschritt-Balken
 

@@ -73,7 +73,7 @@
     min-height: 100vh;
     /* Rechts extra Platz für die vertikale Icon-Leiste (siehe .icon-reihe) -
        deshalb 4-Wert-Schreibweise statt links=rechts wie vorher. */
-    padding: max(48px, calc(env(safe-area-inset-top) + 28px)) 74px 70px 22px;
+    padding: max(48px, calc(env(safe-area-inset-top) + 28px)) 22px 70px 22px;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -341,20 +341,21 @@
   /* Icon-Reihe oben rechts: EIN Flex-Container statt einzeln positionierter
      Icons, damit ein ausgeblendetes Icon (z. B. Sport-Hinweis ohne Sport
      morgen) keine Lücke hinterlässt, sondern die anderen zusammenrutschen. */
-  /* Menü bleibt oben, die übrigen Icons stehen darunter als eigene Spalte -
-     beides zusammen bildet die vertikale Leiste am rechten Rand. */
+  /* Auf dem Handy bleibt es die ursprüngliche horizontale Reihe (row).
+     Erst auf dem Desktop (Media Query weiter unten) wird daraus eine
+     vertikale Leiste - Menü oben, Rest darunter in .icon-spalte gestapelt. */
   .icon-reihe {
     position: fixed;
     top: max(20px, env(safe-area-inset-top));
     right: 20px;
     z-index: 100;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
   }
   .icon-spalte {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
   }
   .icon-reihe > *,
@@ -897,6 +898,12 @@
   #section-kalender-widget { display: none; }
 
   @media (min-width: 900px) {
+    /* Nur hier vertikal - Handy bleibt bei row (siehe Basis-Regel oben).
+       Der zusätzliche Platz dafür kommt weiter unten über das body-Padding
+       (schon Teil der "kompakt"-Regeln, deshalb hier nicht nochmal nötig). */
+    .icon-reihe,
+    .icon-spalte { flex-direction: column; }
+
     .wrap {
       max-width: 1200px;
       display: grid;
@@ -1277,7 +1284,7 @@
 <!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
      zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
      verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
-<script src="data.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="data.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
