@@ -181,6 +181,29 @@ Sektionen im Desktop-Grid: IMMER auch in `SPALTE_1_IDS` oder `SPALTE_2_IDS` in a
 eintragen**, sonst bekommt die Sektion nie eine `grid-row` und das Problem kann in
 abgeschwächter Form wieder auftreten.
 
+**Resize-Listener:** ein (leicht entprellter) `window.addEventListener("resize", ...)`
+ruft `aktualisiereDesktopGridZeilen()` erneut auf - ohne den blieben die grid-row-Werte
+stehen, wenn jemand das Browserfenster live über die 900px-Grenze zieht (beim Testen
+aufgefallen: Seite in einem schmalen Tab laden lassen und danach in der Vorschau auf
+Desktop-Breite vergrössern reproduziert das Problem zuverlässig).
+
+**Spalten-Reihenfolge:** `SPALTE_2_IDS` hat Flämmchen-Vorschau und News VOR dem
+Kalender-Widget (nicht danach) - Tim wollte die beiden kleineren Kacheln oben, den
+(grossen) Kalender unten. Kam über eine rot eingekreiste Screenshot-Skizze rüber, kein
+Text nötig gewesen.
+
+**Kompakt fürs Ganze-ohne-Scrollen:** Tim wollte explizit, dass die Desktop-Ansicht
+komplett ohne Scrollen in ein normales Fenster passt. Deshalb auf Desktop reduziert:
+`body`-Padding (24px oben/unten statt 48+70px), `.header`-Abstand (18px statt 40px),
+`.section`-Padding (14px/16px statt 20px/18px), Grid-`gap` (16px statt 24px). Der
+grösste Einzelposten war das Kalender-Widget (volles `aspect-ratio:1` pro Tag-Kachel
+über bis zu 6 Wochenzeilen) - dort `aspect-ratio` aufgehoben und eine feste, niedrige
+`height` gesetzt (nur `#section-kalender-widget .kalender-tag`, NICHT die interaktive
+Kalender-Ansicht im Menü - die bleibt bewusst normal gross). Getestet: passt bei
+1366×768 UND sogar bei 1366×700 noch mit ca. 49px Luft. Bei sehr kleinen/schmalen
+Fenstern (schon unterhalb von 900px greift ohnehin die Handy-Ansicht) kann trotzdem
+Scrollen nötig werden - das ist kein Bug, nur eine praktische Grenze.
+
 **Hausaufgaben-Widget** (`section-hausaufgaben-widget`): NUR im Desktop-Grid sichtbar
 (per CSS `display:none` als Basis, `display:block` in der Media Query - diese
 Reihenfolge ist wichtig, siehe Kommentar im CSS). Zeigt die offenen (nicht erledigten)

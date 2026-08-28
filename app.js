@@ -55,8 +55,8 @@ const SPALTE_1_IDS = [
   "section-abendroutine", "section-hausaufgaben-erinnerung", "section-lese-erinnerung",
 ];
 const SPALTE_2_IDS = [
-  "section-notiz-postit", "section-hausaufgaben-widget", "section-kalender-widget",
-  "section-flaemmchen-preview", "section-news",
+  "section-notiz-postit", "section-hausaufgaben-widget",
+  "section-flaemmchen-preview", "section-news", "section-kalender-widget",
 ];
 
 function aktualisiereDesktopGridZeilen() {
@@ -93,6 +93,15 @@ function init() {
     if (document.visibilityState === "visible") {
       aktualisiereInhalt();
     }
+  });
+
+  // Falls jemand das Browserfenster live über die 900px-Desktop-Grenze zieht
+  // (rein/raus aus dem Grid) - die grid-row-Zuweisungen sonst stehenbleiben.
+  // Leicht entprellt, kostet sonst nichts, hängt keine weiteren Listener an.
+  let resizeTimeout = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(aktualisiereDesktopGridZeilen, 150);
   });
 }
 

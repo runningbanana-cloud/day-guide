@@ -901,7 +901,7 @@
       max-width: 1200px;
       display: grid;
       grid-template-columns: 1.6fr 1fr;
-      gap: 24px;
+      gap: 16px;
       align-items: start;
     }
     .header { grid-column: 1 / -1; grid-row: 1; }
@@ -931,6 +931,20 @@
     #section-hausaufgaben-widget,
     #section-kalender-widget { display: block; }
     #section-kalender-widget .kalender-tag { cursor: default; }
+
+    /* Kompakter, damit möglichst alles ohne Scrollen in ein Fenster passt -
+       Tim wollte explizit kein Scrollen auf dem Desktop. */
+    body { padding: 24px 74px 24px 22px; }
+    .header { padding-bottom: 18px; }
+    .section { padding: 14px 16px; }
+    .section-label { margin-bottom: 8px; }
+    #section-kalender-widget .kalender-grid { gap: 1px; }
+    #section-kalender-widget .kalender-tag {
+      aspect-ratio: unset;
+      height: 22px;
+      font-size: 10px;
+    }
+    #section-kalender-widget .kalender-wochentag { font-size: 9px; }
   }
 
   /* Kompakte Darstellung für Sektionen, die gerade weniger wichtig sind */
@@ -1263,7 +1277,7 @@
 <!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
      zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
      verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
-<script src="data.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="data.js?v=4"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
