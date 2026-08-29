@@ -254,10 +254,22 @@ Anordnung überall (auch Handy) - Tim wollte das Handy explizit unverändert
 Beide Container nutzen Flexbox statt einzeln `position:fixed` positionierter Icons -
 Grund: ein ausgeblendetes Icon (z. B. Sport-Hinweis ohne Sport morgen) hinterlässt so
 keine Lücke, die übrigen rutschen automatisch zusammen (horizontal auf dem Handy,
-vertikal auf dem Desktop). **Reihenfolge in der HTML = Reihenfolge von oben nach unten
-bzw. links nach rechts.** Neue Icons hier IMMER als Kind von `.icon-reihe`
+vertikal auf dem Desktop). Neue Icons hier IMMER als Kind von `.icon-reihe`
 (Menü-Ebene) oder `.icon-spalte` (alles andere) einfügen, nie wieder einzeln
 `position:fixed`.
+
+**Reihenfolge unterscheidet sich bewusst zwischen Handy und Desktop, deshalb über
+CSS `order` gelöst, NICHT über die HTML/DOM-Reihenfolge:**
+- Handy (links → rechts): Hausaufgaben-Schnellzugriff, Sport-Hinweis, Notiz,
+  Flämmchen, Menü ganz rechts.
+- Desktop (oben → unten): Menü ganz oben, dann Flämmchen, Sport-Hinweis, Notiz,
+  Hausaufgaben-Schnellzugriff.
+
+Eine einzige DOM-Reihenfolge hätte das nicht für beide gleichzeitig hinbekommen (Menü
+müsste gleichzeitig "zuletzt" (Handy) und "zuerst" (Desktop) im Dokument stehen). Jedes
+Icon hat daher eine eigene `order`-Regel in der Basis-CSS (Handy) UND nochmal
+überschrieben in der `@media (min-width: 900px)`-Regel (Desktop). **Bei neuen Icons:
+für beide Breakpoints eine `order`-Zahl vergeben, sonst hängt es an zufälliger Stelle.**
 
 ## Tagesfortschritt-Balken
 

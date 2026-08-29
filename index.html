@@ -373,6 +373,18 @@
   .notiz-btn { font-size: 18px; line-height: 1; }
   .sport-hinweis-ecke svg { width: 22px; height: 22px; }
   .flaemmchen-btn { gap: 3px; }
+
+  /* Reihenfolge auf dem Handy (links -> rechts): Hausaufgaben, Sport, Notiz,
+     Flämmchen, Menü. Über order statt HTML-Reihenfolge, weil der Desktop
+     (Media Query weiter unten) eine andere Reihenfolge braucht (Menü oben) -
+     mit derselben DOM-Reihenfolge liesse sich das nicht für beide zugleich
+     erreichen. */
+  .icon-spalte { order: 1; }
+  #menu-btn { order: 2; }
+  #hausaufgaben-shortcut-btn { order: 1; }
+  #sport-hinweis { order: 2; }
+  #notiz-btn { order: 3; }
+  #flaemmchen-btn { order: 4; }
   #flaemmchen-streak-badge {
     font-size: 12px;
     font-variant-numeric: tabular-nums;
@@ -904,6 +916,15 @@
     .icon-reihe,
     .icon-spalte { flex-direction: column; }
 
+    /* Reihenfolge hier bewusst anders als auf dem Handy: Menü bleibt oben,
+       darunter Flämmchen/Sport/Notiz/Hausaufgaben-Schnellzugriff. */
+    .icon-spalte { order: 2; }
+    #menu-btn { order: 1; }
+    #flaemmchen-btn { order: 1; }
+    #sport-hinweis { order: 2; }
+    #notiz-btn { order: 3; }
+    #hausaufgaben-shortcut-btn { order: 4; }
+
     .wrap {
       max-width: 1200px;
       display: grid;
@@ -1284,7 +1305,7 @@
 <!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
      zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
      verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
-<script src="data.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="data.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
