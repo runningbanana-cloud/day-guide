@@ -5,6 +5,16 @@
 
 const WOCHENTAGE = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
 
+// Eigener Monats-Stand fürs Desktop-Kalender-Widget (unabhängig vom Menü-
+// Kalender). MUSS hier oben stehen, VOR dem init()-Aufruf weiter unten -
+// renderKalenderWidget() liest diese Variablen schon während init() (über
+// aktualisiereInhalt()), und "let" wird erst bei Erreichen der Zeile
+// initialisiert (kein Hoisting wie bei "var"/Funktionen). Stand die
+// Deklaration weiter unten im Skript, gab es einen "Cannot access before
+// initialization"-Fehler.
+let kalenderWidgetJahr = null;
+let kalenderWidgetMonat = null;
+
 // Kleines Bus-Symbol für die Bus-Labels
 const BUS_ICON_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;">
   <rect x="4" y="4" width="16" height="13" rx="2"></rect>
@@ -82,6 +92,7 @@ function init() {
   setupMenu();
   setupSwipeMenu();
   setupFlaemmchen();
+  setupKalenderWidgetPopup();
   setInterval(updateFavicon, 30 * 60 * 1000); // alle 30 Min. neu zeichnen
 
   // iOS friert eine als App gespeicherte Seite im Hintergrund ein, statt sie
@@ -1611,14 +1622,24 @@ function setupSchuleMenu() {
 
   // Schnellzugriff (nur Hausaufgaben, siehe Tims Wunsch): Menü öffnen und
   // direkt ins Formular springen, ohne über die Schule-Liste zu gehen.
-  document.getElementById("hausaufgaben-shortcut-btn").addEventListener("click", () => {
-    document.getElementById("menu-overlay").classList.add("open");
-    document.getElementById("menu-list").style.display = "none";
-    document.getElementById("menu-detail").style.display = "block";
-    document.querySelectorAll("#menu-detail > div[id^='detail-']").forEach(d => d.style.display = "none");
-    document.getElementById("detail-schule").style.display = "block";
-    zeigeSchuleDetail("hausaufgaben");
-  });
+  document.getElementById("hausaufgaben-shortcut-btn").addEventListener("click", oeffneHausaufgabenSchnellzugriff);
+
+  // Desktop-Widget-Titel: unabhängig davon, ob Einträge vorhanden sind,
+  // springt ein Klick auf "Hausaufgaben" direkt zum vollen Formular
+  // (mit allen Details + Möglichkeit, gleich eine neue einzutragen).
+  const widgetTitel = document.getElementById("hausaufgaben-widget-titel");
+  if (widgetTitel) widgetTitel.addEventListener("click", oeffneHausaufgabenSchnellzugriff);
+}
+
+// Eigene Funktion (nicht nur inline im Button-Handler), weil auch das
+// Desktop-Hausaufgaben-Widget im Leer-Zustand dorthin springen soll.
+function oeffneHausaufgabenSchnellzugriff() {
+  document.getElementById("menu-overlay").classList.add("open");
+  document.getElementById("menu-list").style.display = "none";
+  document.getElementById("menu-detail").style.display = "block";
+  document.querySelectorAll("#menu-detail > div[id^='detail-']").forEach(d => d.style.display = "none");
+  document.getElementById("detail-schule").style.display = "block";
+  zeigeSchuleDetail("hausaufgaben");
 }
 
 // Alle im Stundenplan vorkommenden Fächer, für die Fach-Auswahl in den Formularen.
@@ -1783,6 +1804,15 @@ function renderLernplanListe() {
 // Tim nutzt den Hausaufgabenmanager öfter am PC als am Handy. ---
 function renderHausaufgabenWidget() {
   renderFolderListe("hausaufgaben-widget-content", "hausaufgaben", "Keine offenen Hausaufgaben.", true);
+
+  // Leer-Zustand antippbar machen: springt direkt ins Formular, damit man
+  // gleich eine Hausaufgabe eintragen kann, ohne erst durchs Menü zu müssen.
+  const el = document.getElementById("hausaufgaben-widget-content");
+  const leer = el.querySelector(".empty");
+  if (leer) {
+    leer.style.cursor = "pointer";
+    leer.addEventListener("click", oeffneHausaufgabenSchnellzugriff);
+  }
 }
 
 // --- Morgen-Erinnerung: fällige/überfällige, noch nicht erledigte Hausaufgaben.
@@ -2106,9 +2136,85 @@ function renderKalenderWidget() {
   const el = document.getElementById("kalender-widget-content");
   if (!el) return;
   const heute = new Date();
-  const monatsName = heute.toLocaleDateString("de-CH", { month: "long", year: "numeric" });
-  document.getElementById("kalender-widget-label").textContent = `Kalender · ${monatsName}`;
-  el.innerHTML = kalenderGridHtml(heute.getFullYear(), heute.getMonth());
+  if (kalenderWidgetJahr === null) {
+    kalenderWidgetJahr = heute.getFullYear();
+    kalenderWidgetMonat = heute.getMonth();
+  }
+  const jahr = kalenderWidgetJahr;
+  const monat = kalenderWidgetMonat;
+  const monatsName = new Date(jahr, monat, 1).toLocaleDateString("de-CH", { month: "long", year: "numeric" });
+  document.getElementById("kalender-widget-label").textContent = monatsName;
+  el.innerHTML = kalenderGridHtml(jahr, monat);
+
+  document.querySelectorAll("#kalender-widget-content .kalender-tag:not(.leer)").forEach(tagEl => {
+    tagEl.addEventListener("click", () => oeffneKalenderWidgetPopup(jahr, monat, Number(tagEl.dataset.tag)));
+  });
+}
+
+function kalenderWidgetMonatWechseln(delta) {
+  kalenderWidgetMonat += delta;
+  if (kalenderWidgetMonat < 0) { kalenderWidgetMonat = 11; kalenderWidgetJahr--; }
+  if (kalenderWidgetMonat > 11) { kalenderWidgetMonat = 0; kalenderWidgetJahr++; }
+  document.getElementById("kalender-widget-popup").style.display = "none";
+  renderKalenderWidget();
+}
+
+// Eigenes, schwebendes Popup (wie Notiz/Flämmchen) statt das inline-
+// positionierte Menü-Popup wiederzuverwenden - das Widget lebt auf der
+// Hauptseite, ausserhalb des Menü-Overlays.
+function oeffneKalenderWidgetPopup(jahr, monat, tag) {
+  const key = kalenderDatumKey(jahr, monat, tag);
+  const popup = document.getElementById("kalender-widget-popup");
+  const label = document.getElementById("kalender-widget-popup-datum");
+  const text = document.getElementById("kalender-widget-popup-text");
+  const notizen = ladeKalenderNotizen();
+
+  label.textContent = new Date(jahr, monat, tag).toLocaleDateString("de-CH", { weekday: "long", day: "numeric", month: "long" });
+  text.value = notizen[key] || "";
+  popup.dataset.key = key;
+  popup.style.display = "block";
+  text.focus();
+}
+
+function setupKalenderWidgetPopup() {
+  const popup = document.getElementById("kalender-widget-popup");
+  const text = document.getElementById("kalender-widget-popup-text");
+  const loeschen = document.getElementById("kalender-widget-popup-loeschen");
+  const prev = document.getElementById("kalender-widget-prev");
+  const next = document.getElementById("kalender-widget-next");
+  if (!popup || !prev || !next) return; // Elemente existieren nur, wenn das Widget im HTML ist
+
+  text.addEventListener("blur", () => {
+    const key = popup.dataset.key;
+    if (!key) return;
+    const notizen = ladeKalenderNotizen();
+    const wert = text.value.trim();
+    if (wert) notizen[key] = wert; else delete notizen[key];
+    speichereKalenderNotizen(notizen);
+    renderKalenderWidget();
+    renderKalender();
+  });
+
+  loeschen.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const key = popup.dataset.key;
+    const notizen = ladeKalenderNotizen();
+    delete notizen[key];
+    speichereKalenderNotizen(notizen);
+    text.value = "";
+    popup.style.display = "none";
+    renderKalenderWidget();
+    renderKalender();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (popup.style.display !== "none" && !popup.contains(e.target) && !e.target.classList.contains("kalender-tag")) {
+      popup.style.display = "none";
+    }
+  });
+
+  prev.addEventListener("click", () => kalenderWidgetMonatWechseln(-1));
+  next.addEventListener("click", () => kalenderWidgetMonatWechseln(1));
 }
 
 function kalenderMonatWechseln(delta) {

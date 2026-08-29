@@ -226,15 +226,25 @@ bleibt bewusst sichtbar** - den will Tim kurz vor Schulschluss evtl. noch am PC 
 Wichtig: dieselbe `#section-bus` zeigt je nach Phase "Weg zur Kanti" ODER "Heimweg" -
 ist keine zwei getrennten Sektionen, nur ein anderer Text im selben Element.
 
-**Kalender-Widget** (`section-kalender-widget`, ebenfalls nur Desktop): zeigt den
-AKTUELLEN Monat (nicht den zuletzt im Menü durchgeblätterten), rein zur Ansicht, ohne
-Klick-Popup (`.kalender-tag` hat dort `cursor:default`). `kalenderGridHtml(jahr, monat)`
-ist die aus `renderKalender()` herausgezogene, wiederverwendbare Grid-HTML-Funktion -
-falls sich am Kalender-Grid selbst was ändert, hier UND in `renderKalender()` prüfen,
-ob beide noch zusammenpassen (sie teilen sich dieselbe Funktion, sollte eigentlich von
-selbst passen). `renderKalenderWidget()` wird nach jeder Kalender-Notiz-Änderung
-aufgerufen (Popup speichern/löschen, Hausaufgaben-/Lernplan-Formular), damit die
-Punkte für "Notiz vorhanden" synchron bleiben.
+**Kalender-Widget** (`section-kalender-widget`, nur Desktop) - **jetzt voll
+interaktiv**, nicht mehr nur Ansicht: eigene Monats-Navigation (`kalender-widget-prev/
+next`) und Tag-Klick öffnet ein eigenes, schwebendes Popup (`kalender-widget-popup`,
+`.kalender-widget-popup` CSS-Klasse, `position:fixed` wie Notiz-/Flämmchen-Popup - das
+Widget lebt auf der Hauptseite, ausserhalb des Menü-Overlays, kann das inline
+positionierte Menü-Popup nicht mitbenutzen).
+- **Eigener Monats-Stand** `kalenderWidgetJahr`/`kalenderWidgetMonat`, unabhängig vom
+  Menü-Kalender (`kalenderJahr`/`kalenderMonat`) - im Menü blättern lässt das Widget
+  unberührt und umgekehrt. **Wichtig:** diese beiden `let`-Variablen müssen GANZ OBEN
+  im Skript stehen (vor dem `init()`-Aufruf), nicht erst bei den anderen
+  Kalender-Funktionen weiter unten - `renderKalenderWidget()` liest sie schon während
+  `init()` (über `aktualisiereInhalt()`), und `let` wird erst bei Erreichen der
+  Deklarationszeile initialisiert (kein Hoisting). Genau das war ein echter Bug beim
+  ersten Bauen ("Cannot access 'kalenderWidgetJahr' before initialization").
+- `kalenderGridHtml(jahr, monat)` ist die aus `renderKalender()` herausgezogene,
+  wiederverwendbare Grid-HTML-Funktion, von beiden Kalendern genutzt.
+- Notiz-Änderungen in einem der beiden Kalender (Menü ODER Widget) rendern jeweils
+  BEIDE neu (`renderKalender(); renderKalenderWidget();` in beiden Popup-Handlern),
+  damit die "Notiz vorhanden"-Punkte überall synchron bleiben.
 
 ## Icon-Leiste am rechten Rand: horizontal auf dem Handy, vertikal auf dem Desktop
 
@@ -382,6 +392,16 @@ geht wie überall sonst direkt zur Hauptliste.
   zeigt eine echte, klickbare Checkbox pro Eintrag (nicht mehr nur ein statisches "✓").
   Tim wollte das explizit für Hausaufgaben ("sonst bin ich nicht sicher, was ich schon
   gemacht habe"), wurde aus Konsistenzgründen gleich auch für Lernplan mitgemacht.
+- **Desktop-Widget ist jetzt Einstiegspunkt, nicht nur Anzeige:** Klick auf den Titel
+  "Hausaufgaben" (`#hausaufgaben-widget-titel`, IMMER klickbar, egal ob Einträge da
+  sind) ODER auf den Leer-Text "Keine offenen Hausaufgaben." springt direkt zum vollen
+  Formular (`oeffneHausaufgabenSchnellzugriff()` - dieselbe Funktion wie beim
+  Schnellzugriff-Icon). Der Titel-Listener sitzt einmalig in `setupSchuleMenu()`, NICHT
+  in `renderHausaufgabenWidget()` (das würde bei jedem Todo-Update erneut feuern und
+  Listener duplizieren) - der Leer-Text-Listener sitzt dagegen in
+  `renderHausaufgabenWidget()`, das ist unproblematisch, weil dieses Element bei jedem
+  Aufruf per `innerHTML` neu erzeugt wird (alter Listener verschwindet mit dem alten
+  Element).
 - **Schnellzugriff:** eigenes Icon oben rechts (`#hausaufgaben-shortcut-btn`,
   `right: 180px`), springt direkt in `schule-hausaufgaben`, ohne über "Schule" zu
   navigieren. **Bewusst NUR für Hausaufgaben, nicht für Lernplan** - Tim hat das

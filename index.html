@@ -646,6 +646,16 @@
     border-radius: 14px;
     padding: 14px 16px;
   }
+  /* Widget-Variante schwebt (wie Notiz-/Flämmchen-Popup), weil das Widget auf
+     der Hauptseite lebt statt in einem Menü-Panel mit eigenem Scroll-Fluss. */
+  .kalender-widget-popup {
+    position: fixed;
+    top: max(56px, calc(env(safe-area-inset-top) + 56px));
+    right: 20px;
+    width: 260px;
+    margin-top: 0;
+    z-index: 150;
+  }
   .kalender-popup-head {
     display: flex;
     justify-content: space-between;
@@ -958,7 +968,7 @@
     }
     #section-hausaufgaben-widget,
     #section-kalender-widget { display: block; }
-    #section-kalender-widget .kalender-tag { cursor: default; }
+    #hausaufgaben-widget-titel { cursor: pointer; }
 
     /* Kompakter, damit möglichst alles ohne Scrollen in ein Fenster passt -
        Tim wollte explizit kein Scrollen auf dem Desktop. */
@@ -1176,15 +1186,30 @@
   <!-- Nur auf breiten Bildschirmen sichtbar (siehe Media Query): Hausaufgaben
        direkt zugänglich, ohne ins Menü zu müssen - Tim nutzt das am PC häufiger. -->
   <div class="section" id="section-hausaufgaben-widget">
-    <div class="section-label">Hausaufgaben</div>
+    <div class="section-label" id="hausaufgaben-widget-titel">Hausaufgaben</div>
     <div id="hausaufgaben-widget-content"></div>
   </div>
 
   <!-- Nur auf breiten Bildschirmen: kompakter, nicht-interaktiver Kalender-
        Ausschnitt statt der morgendlichen Sachen (siehe Media Query). -->
   <div class="section" id="section-kalender-widget">
-    <div class="section-label" id="kalender-widget-label">Kalender</div>
+    <div class="kalender-header">
+      <span class="kalender-nav" id="kalender-widget-prev">‹</span>
+      <div class="section-label" id="kalender-widget-label">Kalender</div>
+      <span class="kalender-nav" id="kalender-widget-next">›</span>
+    </div>
     <div id="kalender-widget-content"></div>
+  </div>
+
+  <!-- Eigenes schwebendes Popup fürs Kalender-Widget (lebt auf der
+       Hauptseite, ausserhalb des Menü-Overlays - kann das Menü-Popup nicht
+       mitbenutzen). -->
+  <div class="kalender-popup kalender-widget-popup" id="kalender-widget-popup" style="display:none;">
+    <div class="kalender-popup-head">
+      <span id="kalender-widget-popup-datum"></span>
+      <span class="notiz-loeschen" id="kalender-widget-popup-loeschen">✕</span>
+    </div>
+    <textarea id="kalender-widget-popup-text" maxlength="200" rows="3" placeholder="Notiz für diesen Tag"></textarea>
   </div>
 
   <!-- Flämmchen-Vorschau: heutige Aufgabe, nur bis einmal angeschaut -->
@@ -1305,7 +1330,7 @@
 <!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
      zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
      verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
-<script src="data.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="data.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
