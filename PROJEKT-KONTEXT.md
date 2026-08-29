@@ -359,6 +359,28 @@ Tim kann also entweder in der App selbst Punkte hinzufügen/löschen, oder weite
 data.js anpassen (wirkt sich aber nur aus, solange er die App-eigene Liste noch nicht
 einmal editiert hat, bzw. bis er `localStorage.removeItem("dayguide_liste_...")` löscht).
 
+## Bugfix: "Hinzufügen"-Button in Hausaufgaben/Lernplan tot (0×0-Box)
+
+Tim: Klick auf "Hinzufügen" tat nichts. Ursache: der GENERISCHE Klick-Handler fürs
+oberste Menü (`setupMenu()`) hing an `document.querySelectorAll(".menu-list-item")` -
+**document-weit, nicht auf die oberste Liste beschränkt.** Die Schule-Unteransicht
+(`#schule-liste`) nutzt dieselbe Klasse `.menu-list-item` für ihre drei Einträge
+(mit `data-schule-view` statt `data-view`). Klickt man einen davon, feuerten BEIDE
+Handler: der korrekte aus `setupSchuleMenu()` (zeigt `schule-hausaufgaben`) UND der
+generische aus `setupMenu()`, der mit `view = item.dataset.view` (hier `undefined`,
+da nur `data-schule-view` gesetzt ist) ALLE `detail-*`-Panels ausblendet (auch das
+gerade erst gezeigte `detail-schule`) und danach beim Versuch,
+`document.getElementById("detail-undefined")` zu benutzen, einen unbehandelten
+`TypeError` wirft. Ergebnis: `detail-schule` blieb `display:none`, das Formular
+darunter hatte dadurch eine 0×0-Bounding-Box - der Button war technisch da, aber
+nirgends zum Antippen.
+
+**Fix:** `list.querySelectorAll(".menu-list-item")` statt
+`document.querySelectorAll(...)` in `setupMenu()` (`list` ist schon die Referenz auf
+`#menu-list`). **Regel für neue verschachtelte Menüs:** Klassen wie `.menu-list-item`
+NIE document-weit selektieren, wenn dieselbe Klasse auch in einer Unteransicht
+wiederverwendet wird - IMMER auf den passenden Container scopen.
+
 ## Schule-Untermenü, Hausaufgaben- & Lernplanmanager
 
 Der frühere Top-Level-Menüpunkt "Morgiger Stundenplan" ist jetzt in einem neuen

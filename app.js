@@ -1859,7 +1859,15 @@ function setupMenu() {
   });
   backBtn.addEventListener("click", zeigeListe);
 
-  document.querySelectorAll(".menu-list-item").forEach(item => {
+  // WICHTIG: auf die oberste Liste beschränkt, NICHT document-weit -
+  // "Schule" hat innen (#schule-liste) eigene .menu-list-item-Einträge mit
+  // data-schule-view statt data-view. Ohne diese Einschränkung fängt dieser
+  // Handler auch Klicks auf die Schule-Unteransicht ab, blendet dabei ALLE
+  // detail-*-Panels aus (auch das gerade erst gezeigte detail-schule) und
+  // wirft danach einen Fehler beim Versuch, "detail-undefined" zu finden -
+  // genau das hat den Hausaufgaben/Lernplan-"Hinzufügen"-Button unerreichbar
+  // gemacht (0x0-Box, weil ein Vorfahre plötzlich display:none hatte).
+  list.querySelectorAll(".menu-list-item").forEach(item => {
     item.addEventListener("click", () => {
       const view = item.dataset.view;
       list.style.display = "none";
