@@ -1233,6 +1233,25 @@ const LISTEN_KONFIG = {
   abendroutine: { key: "dayguide_liste_abendroutine", standard: ABENDROUTINE, label: "Abendroutine" },
 };
 
+// Zusätzlich zu den vier festen Listen kann Tim eigene, frei benannte Listen
+// anlegen (Plus-Tab). Deren Namen/Reihenfolge liegen hier, die Einträge selbst
+// weiterhin über ladeListe()/speichereListe() wie bei den festen Listen.
+function ladeCustomListen() {
+  return JSON.parse(localStorage.getItem("dayguide_custom_listen") || "[]"); // [{id, label}]
+}
+function speichereCustomListen(arr) {
+  localStorage.setItem("dayguide_custom_listen", JSON.stringify(arr));
+}
+
+// Feste + eigene Listen zusammen, als ein Konfigurations-Objekt wie LISTEN_KONFIG.
+function alleListenKonfigs() {
+  const konfigs = { ...LISTEN_KONFIG };
+  ladeCustomListen().forEach(l => {
+    konfigs[l.id] = { key: `dayguide_liste_custom_${l.id}`, standard: [], label: l.label };
+  });
+  return konfigs;
+}
+
 function ladeListe(cfg) {
   const raw = localStorage.getItem(cfg.key);
   if (!raw) return [...cfg.standard];
@@ -1249,14 +1268,34 @@ function speichereListe(cfg, arr) {
 
 let aktuelleListe = "morgenroutine";
 
+function renderListenTabs() {
+  const container = document.getElementById("listen-tabs");
+  const konfigs = alleListenKonfigs();
+
+  container.innerHTML = Object.keys(konfigs).map(id => `
+    <span class="listen-tab${id === aktuelleListe ? " aktiv" : ""}" data-liste="${id}">${konfigs[id].label}</span>
+  `).join("") + `<span class="listen-tab listen-tab-neu" id="listen-tab-neu">+ Neue Liste</span>`;
+
+  container.querySelectorAll(".listen-tab[data-liste]").forEach(tab => {
+    tab.addEventListener("click", () => {
+      aktuelleListe = tab.dataset.liste;
+      renderListenTabs();
+      renderListenEditor();
+      document.getElementById("listen-neue-row").style.display = "none";
+    });
+  });
+
+  document.getElementById("listen-tab-neu").addEventListener("click", () => {
+    const row = document.getElementById("listen-neue-row");
+    row.style.display = row.style.display === "none" ? "flex" : "none";
+    if (row.style.display === "flex") document.getElementById("listen-neue-input").focus();
+  });
+}
+
 function renderListenEditor() {
-  const cfg = LISTEN_KONFIG[aktuelleListe];
+  const cfg = alleListenKonfigs()[aktuelleListe];
   const items = ladeListe(cfg);
   const content = document.getElementById("listen-content");
-
-  document.querySelectorAll(".listen-tab").forEach(tab => {
-    tab.classList.toggle("aktiv", tab.dataset.liste === aktuelleListe);
-  });
 
   content.innerHTML = items.length === 0
     ? `<div class="empty">Keine Einträge.</div>`
@@ -1277,19 +1316,15 @@ function renderListenEditor() {
 }
 
 function setupListenEditor() {
-  document.querySelectorAll(".listen-tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-      aktuelleListe = tab.dataset.liste;
-      renderListenEditor();
-    });
-  });
+  renderListenTabs();
+  renderListenEditor();
 
   const input = document.getElementById("listen-input");
   const btn = document.getElementById("listen-add-btn");
   function hinzufuegen() {
     const text = input.value.trim();
     if (!text) return;
-    const cfg = LISTEN_KONFIG[aktuelleListe];
+    const cfg = alleListenKonfigs()[aktuelleListe];
     const arr = ladeListe(cfg);
     arr.push(text);
     speichereListe(cfg, arr);
@@ -1298,6 +1333,25 @@ function setupListenEditor() {
   }
   btn.addEventListener("click", hinzufuegen);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") hinzufuegen(); });
+
+  // Neue, frei benannte Liste anlegen (Plus-Tab)
+  const neuInput = document.getElementById("listen-neue-input");
+  const neuBtn = document.getElementById("listen-neue-bestaetigen");
+  function neueListeErstellen() {
+    const name = neuInput.value.trim();
+    if (!name) return;
+    const custom = ladeCustomListen();
+    const id = "custom_" + Date.now();
+    custom.push({ id, label: name });
+    speichereCustomListen(custom);
+    neuInput.value = "";
+    document.getElementById("listen-neue-row").style.display = "none";
+    aktuelleListe = id;
+    renderListenTabs();
+    renderListenEditor();
+  }
+  neuBtn.addEventListener("click", neueListeErstellen);
+  neuInput.addEventListener("keydown", (e) => { if (e.key === "Enter") neueListeErstellen(); });
 }
 
 function renderMorgenroutine() {

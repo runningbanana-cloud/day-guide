@@ -345,6 +345,18 @@ Popup/Icon**, damit keine zweiten Checkboxen mit doppelten IDs im Menü nötig s
 - Aufgaben-Listen nochmals deutlich vergrössert (30/12/8 -> 54/24/16), damit
   Wiederholungen noch seltener auffallen.
 
+## Bugfix: Icon-Leiste überlappte den Header ("Guten Abend")
+
+Tim: Abstand zwischen Icon-Reihe und "Guten Abend" zu eng. War kein Gefühl, sondern
+echt messbar: `.icon-reihe` ist `position:fixed`, `top: max(20px, safe-area)`, Höhe
+gemessen ~51px → reicht bis ~71px runter. `body`-Padding-Top war nur `max(48px, ...)`
+- der Header (und damit die Begrüssung) begann also rein rechnerisch schon **innerhalb**
+der Icon-Zeile (Überlapp ~23px), nicht erst sauber danach. Jetzt
+`max(92px, calc(env(safe-area-inset-top) + 72px))` - Header beginnt mit klarem Abstand
+(~20px) unter der Icon-Reihe. **Falls sich die Icon-Reihe nochmal in der Höhe ändert
+(neues Icon, grössere Badges o. ä.): body-Padding-Top hier nachziehen, sonst überlappt
+es wieder.**
+
 ## Editierbare Listen (Morgenroutine/Packliste/Abendroutine)
 
 Eigener Menüpunkt "Listen" mit Tabs zum Umschalten zwischen den vier Listen
@@ -358,6 +370,18 @@ beim allerersten Laden - danach zählt, was in `dayguide_liste_*` in localStorag
 Tim kann also entweder in der App selbst Punkte hinzufügen/löschen, oder weiterhin
 data.js anpassen (wirkt sich aber nur aus, solange er die App-eigene Liste noch nicht
 einmal editiert hat, bzw. bis er `localStorage.removeItem("dayguide_liste_...")` löscht).
+
+**Eigene, frei benannte Listen (Plus-Tab):** zusätzlich zu den vier festen Listen kann
+Tim über den Tab "+ Neue Liste" beliebig viele eigene Listen anlegen (z. B.
+"Einkaufsliste"). Deren Namen/Reihenfolge liegen in `localStorage.dayguide_custom_listen`
+(`[{id, label}]`, `id` ist ein Zeitstempel-String), die Einträge selbst unter
+`dayguide_liste_custom_<id>` - genau wie bei den festen Listen über `ladeListe()`/
+`speichereListe()`. `alleListenKonfigs()` fasst feste + eigene Listen zu einem
+gemeinsamen Konfigurations-Objekt zusammen (wie `LISTEN_KONFIG`, nur zur Laufzeit
+gebaut) - überall dort verwenden, wo es früher `LISTEN_KONFIG[aktuelleListe]` hiess.
+Tabs werden jetzt komplett per JS gerendert (`renderListenTabs()`), nicht mehr
+hartkodiert in der HTML. **Noch nicht gebaut:** eigene Listen wieder löschen oder
+umbenennen - bisher nur Anlegen und Punkte hinzufügen/löschen.
 
 ## Bugfix: "Hinzufügen"-Button in Hausaufgaben/Lernplan tot (0×0-Box)
 

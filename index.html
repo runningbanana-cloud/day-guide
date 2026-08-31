@@ -72,8 +72,13 @@
     font-variant-numeric: tabular-nums;
     min-height: 100vh;
     /* Rechts extra Platz für die vertikale Icon-Leiste (siehe .icon-reihe) -
-       deshalb 4-Wert-Schreibweise statt links=rechts wie vorher. */
-    padding: max(48px, calc(env(safe-area-inset-top) + 28px)) 22px 70px 22px;
+       deshalb 4-Wert-Schreibweise statt links=rechts wie vorher.
+       Oben: Icon-Reihe ist position:fixed, top ~20px, gemessene Höhe ~51px,
+       reicht also bis ~71px runter. Mit nur 48px Padding startete der Header
+       (und damit "Guten Abend") schon MITTEN in der Icon-Zeile - echter
+       Überlapp, nicht nur ein Gefühl. Jetzt genug Abstand, damit der Header
+       sauber UNTER der Icon-Reihe beginnt. */
+    padding: max(92px, calc(env(safe-area-inset-top) + 72px)) 22px 70px 22px;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -840,6 +845,7 @@
     cursor: pointer;
   }
   .listen-tab.aktiv { border-color: var(--text); color: var(--text); }
+  .listen-tab-neu { border-style: dashed; }
 
   .todo-row { justify-content: space-between; }
   .todo-row span:first-of-type + span { flex: 1; margin-left: 0; }
@@ -1129,11 +1135,12 @@
 
         <div id="detail-listen" style="display:none;">
           <div class="section-label">Listen</div>
-          <div class="listen-tabs" id="listen-tabs">
-            <span class="listen-tab" data-liste="morgenroutine">Morgenroutine</span>
-            <span class="listen-tab" data-liste="packliste_schule">Packliste (Schule)</span>
-            <span class="listen-tab" data-liste="packliste_sport">Packliste (Sport)</span>
-            <span class="listen-tab" data-liste="abendroutine">Abendroutine</span>
+          <!-- Tabs werden per JS gefüllt (renderListenTabs) - vier feste Listen
+               plus alle von Tim selbst angelegten, plus "+ Neue Liste" am Ende. -->
+          <div class="listen-tabs" id="listen-tabs"></div>
+          <div class="todo-add-row" id="listen-neue-row" style="display:none;">
+            <input type="text" id="listen-neue-input" placeholder="Name der neuen Liste" maxlength="40">
+            <span id="listen-neue-bestaetigen">+</span>
           </div>
           <div class="todo-add-row">
             <input type="text" id="listen-input" placeholder="Neuer Punkt" maxlength="80">
@@ -1330,7 +1337,7 @@
 <!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
      zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
      verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
-<script src="data.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="data.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
