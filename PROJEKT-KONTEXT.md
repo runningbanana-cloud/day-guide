@@ -420,6 +420,42 @@ auf dem Wetterbericht von morgen.
   sorgt dafür, dass an einem echten Samstag/Sonntag-Abend ohne Schule morgen nur
   die Kleiderempfehlung erscheint, nicht die Schulsachen.
 
+## Bugfix: Notiz-Popup liess sich nicht schliessen ohne Löschen
+
+Tim: nach dem Schreiben/"Bestätigen" einer Notiz im Popup (Stift-Icon oben) blieb
+das Popup einfach offen - der einzige Ausweg war der Löschen-Button (✕), der die
+Notiz aber gleich mitgelöscht hat.
+
+**Ursache:** `popupEdit`s `blur`-Handler in `loadNotiz()` hat zwar gespeichert
+(`speichern(...)`), aber das Popup NIE geschlossen - das passierte bisher nur über
+den separaten `document`-weiten "Klick ausserhalb"-Listener. Wurde der Fokus aus
+irgendeinem Grund anders verloren (z. B. Tastatur/Eingabetaste am Handy schliesst
+die Tastatur, ohne dass dabei ein echter Klick auf ein Element ausserhalb des
+Popups registriert wird), blieb das Popup offen, obwohl der Text schon gespeichert
+war - fühlte sich an wie "steckengeblieben im Bearbeitungsmodus".
+
+**Fix:** `popupEdit`s `blur`-Handler schliesst das Popup jetzt immer selbst
+(`popup.style.display = "none"`), zusätzlich zum bestehenden "Klick ausserhalb"-
+Listener (der bleibt als zweiter Weg bestehen). Ausserdem: Eingabetaste (ohne
+Shift) in `popupEdit` UND in der Post-it-Kachel (`postitEdit`) löst jetzt aktiv
+ein `blur()` aus (`e.preventDefault()` verhindert dabei den sonst üblichen
+Zeilenumbruch) - Shift+Eingabetaste bleibt für einen bewussten Zeilenumbruch frei,
+da eine Notiz mehrzeilig sein kann. Damit gibt es jetzt eine klare "Bestätigen"-
+Aktion, die zuverlässig schliesst, statt sich nur auf zufälliges Wegklicken zu
+verlassen.
+
+**Nebenbei entdeckt und mitgefixt:** `aktualisiereKleiderempfehlung()` (siehe
+Abschnitt weiter oben) hat `#section-packliste` teils sichtbar gemacht, OHNE
+`aktualisiereDesktopGridZeilen()` danach neu aufzurufen - da diese Funktion
+asynchron (nach dem Wetter-Fetch) läuft, also NACH dem regulären
+`aktualisiereDesktopGridZeilen()`-Aufruf am Ende von `aktualisiereInhalt()`, blieb
+die Packliste auf dem Desktop teils mit `grid-row: auto` hängen (dieselbe Klasse
+Bug wie im Abschnitt "Bugfix: Icon-Leiste..." oben beschrieben - Ursache war hier
+aber ein neu HINZUGEKOMMENER asynchroner Sichtbarkeits-Trigger, nicht die
+DOM-Umsortierung). **Regel bestätigt sich damit nochmal:** jede Stelle, die eine
+Sektion nachträglich (v. a. asynchron) sichtbar macht, muss danach
+`aktualisiereDesktopGridZeilen()` erneut aufrufen.
+
 ## Bugfix: "Hinzufügen"-Button in Hausaufgaben/Lernplan tot (0×0-Box)
 
 Tim: Klick auf "Hinzufügen" tat nichts. Ursache: der GENERISCHE Klick-Handler fürs

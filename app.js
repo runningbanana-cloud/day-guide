@@ -253,7 +253,23 @@ function loadNotiz() {
       popupEdit.focus();
     }
   });
-  popupEdit.addEventListener("blur", () => speichern(popupEdit.value.trim()));
+  // Blur schliesst das Popup jetzt IMMER mit (nicht nur speichern) - vorher
+  // blieb das Popup offen, bis ein Klick ausserhalb davon registriert wurde.
+  // Tim: "Bestätigen" (z. B. Eingabetaste/Tastatur schliessen) hat das Feld
+  // gespeichert, aber das Popup blieb offen - einziger Ausweg war der
+  // Löschen-Button, der die Notiz gleich mitgelöscht hat. Enter (ohne Shift)
+  // bestätigt jetzt zusätzlich explizit und schliesst; Shift+Enter bleibt für
+  // einen Zeilenumbruch offen (Notiz kann mehrzeilig sein).
+  popupEdit.addEventListener("blur", () => {
+    speichern(popupEdit.value.trim());
+    popup.style.display = "none";
+  });
+  popupEdit.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      popupEdit.blur();
+    }
+  });
   loeschen.addEventListener("click", (e) => {
     e.stopPropagation();
     speichern("");
@@ -276,6 +292,12 @@ function loadNotiz() {
     speichern(postitEdit.value.trim());
     postitEdit.style.display = "none";
     postitText.style.display = "block";
+  });
+  postitEdit.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      postitEdit.blur();
+    }
   });
 }
 
@@ -977,6 +999,11 @@ function aktualisiereKleiderempfehlung(data, phase) {
   el.textContent = kleiderText(data.daily.temperature_2m_max[1], data.daily.temperature_2m_min[1], data.daily.weather_code[1]);
   el.style.display = "";
   document.getElementById("section-packliste").style.display = "";
+  // loadWeather() kommt asynchron NACH dem aktualisiereDesktopGridZeilen()-Aufruf
+  // am Ende von aktualisiereInhalt() zurück - wird die Packliste erst hier neu
+  // sichtbar gemacht, hat sie noch keine grid-row (siehe Kommentar bei
+  // aktualisiereDesktopGridZeilen). Deshalb hier nochmal neu berechnen.
+  aktualisiereDesktopGridZeilen();
 }
 
 // --- Bus: Hinweg (Etappe 1 fest + Etappe 2 live, mit Lauf-Empfehlung) ---
