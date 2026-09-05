@@ -1041,6 +1041,7 @@
       <div id="menu-list">
         <div class="menu-list-item" data-view="schule">Schule</div>
         <div class="menu-list-item" data-view="wochenplan">Wochenplan</div>
+        <div class="menu-list-item" data-view="busplan">Busplan</div>
         <div class="menu-list-item" data-view="todo">To-Do</div>
         <div class="menu-list-item" data-view="kalender">Kalender</div>
         <div class="menu-list-item" data-view="flaemmchen">Flämmchen</div>
@@ -1101,6 +1102,15 @@
         <div id="detail-wochenplan" style="display:none;">
           <div class="section-label">Wochenplan</div>
           <div id="wochenplan-content"></div>
+        </div>
+
+        <!-- Reine Leseansicht des festen Fahrplans, unabhängig von der Live-
+             Bus-Sektion auf der Startseite - damit auch abends/unterwegs
+             nachschaubar, nicht nur wenn die Startseite die Bus-Sektion
+             sowieso schon zeigt. -->
+        <div id="detail-busplan" style="display:none;">
+          <div class="section-label">Busplan</div>
+          <div id="busplan-content"></div>
         </div>
 
         <div id="detail-todo" style="display:none;">
@@ -1339,7 +1349,7 @@
 <!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
      zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
      verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
-<script src="data.js?v=13"></script>
-<script src="app.js?v=13"></script>
+<script src="data.js?v=14"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>

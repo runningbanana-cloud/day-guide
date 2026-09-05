@@ -2053,6 +2053,7 @@ function setupMenu() {
       document.getElementById(`detail-${view}`).style.display = "block";
       if (view === "schule") zeigeSchuleListe();
       if (view === "wochenplan") renderWochenplan();
+      if (view === "busplan") renderBusplan();
       if (view === "todo") renderTodo();
       if (view === "kalender") renderKalender();
       if (view === "flaemmchen") renderFlaemmchenDetail();
@@ -2490,6 +2491,49 @@ function renderWochenplan() {
 
     return `<div class="wochentag-label">${tagesNamen[tag]}</div>${inhalt}`;
   }).join("");
+}
+
+// --- Busplan (Menü): reine Leseansicht des festen Hinwegs, unabhängig von der
+// Live-Bus-Sektion auf der Startseite - Tim wollte den Fahrplan auch am
+// Vorabend nachschauen können, nicht nur wenn die Startseite ihn morgens
+// sowieso schon zeigt. Etappe 2 (Wil -> Kanti) und der Heimweg laufen live
+// per API ohne festen Fahrplan, deshalb hier nur als Text-Hinweis statt Zeiten. ---
+function renderBusplan() {
+  const el = document.getElementById("busplan-content");
+  const tagesNamen = { 1: "Montag", 2: "Dienstag", 3: "Mittwoch", 4: "Donnerstag", 5: "Freitag" };
+  const fmt = (d) => d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+
+  // Tag als eigene Überschrift (wie im Wochenplan), NICHT in die schmale
+  // .lesson-time-Spalte (40px, für "HH:MM" gedacht) - "Donnerstag" o. Ä. passt
+  // da nicht rein und bricht/überlappt sonst unschön um.
+  const hinwegHtml = [1, 2, 3, 4, 5].map(tag => {
+    const abfahrt = ETAPPE1_FAHRPLAN[tag];
+    if (!abfahrt) return "";
+    const [h, m] = abfahrt.split(":").map(Number);
+    const abfahrtDatum = new Date();
+    abfahrtDatum.setHours(h, m, 0, 0);
+    const losfahren = fmt(new Date(abfahrtDatum.getTime() - ZEIT_ZUHAUSE_HALTESTELLE_MIN * 60000));
+    const ankunft = fmt(new Date(abfahrtDatum.getTime() + REISEZEIT_ETAPPE1_MIN * 60000));
+    return `
+      <div class="wochentag-label">${tagesNamen[tag]}</div>
+      <div class="lesson-row">
+        <span class="lesson-time">${losfahren}</span>
+        <span>Losfahren · Bus ${abfahrt} ab Kirchberg Post · an Wil Bahnhof ${ankunft}</span>
+      </div>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="wochentag-label">Hinweg: Kirchberg Post → Wil Bahnhof</div>
+    ${hinwegHtml}
+    <div class="empty" style="margin-top:10px;">
+      Weiter ab Wil Bahnhof mit Linie ${ETAPPE2_LINIE} Richtung Kanti (live,
+      keine festen Zeiten - siehe Bus-Sektion auf der Startseite).
+    </div>
+    <div class="wochentag-label">Heimweg: Kanti → Wil Bahnhof → Kirchberg Post</div>
+    <div class="empty">
+      Ebenfalls live (keine festen Zeiten). Ab "${HEIMWEG_START}" mit Linie
+      ${RUECKWEG_LINIE} zurück nach Kirchberg Post.
+    </div>`;
 }
 
 function renderMorgenStundenplan() {

@@ -450,6 +450,24 @@ Zwei kleine, unabhängige Ergänzungen auf Tims Wunsch:
   einen Bus-Eintrag) greift weiterhin die bestehende feste Logik - der neue Zweig
   betrifft nur Freitag-/Samstagabend (morgen = Wochenende, kein Eintrag).
 
+## Busplan (Menü)
+
+Neuer Menüpunkt, reine Leseansicht des festen Fahrplans - unabhängig von der
+Live-Bus-Sektion auf der Startseite, damit Tim den Fahrplan auch abends/unterwegs
+nachschauen kann (Backlog-Punkt, siehe "Bekannte offene Punkte" unten).
+
+- `renderBusplan()` (app.js, vor `renderMorgenStundenplan()`) listet für Mo-Fr
+  Losfahren-Zeit/Bus-Abfahrt/Ankunft für Etappe 1 (Kirchberg Post -> Wil Bahnhof,
+  aus `ETAPPE1_FAHRPLAN`), plus Text-Hinweise zu Etappe 2 (Linie `ETAPPE2_LINIE`)
+  und Heimweg (Linie `RUECKWEG_LINIE`) - beide laufen live per API ohne festen
+  Fahrplan, deshalb dort keine Zeiten, nur der Linien-/Stationstext.
+  `detail-busplan`/`busplan-content` in index.html, Menüpunkt `data-view="busplan"`
+  wie bei den anderen Menü-Detailansichten (siehe `setupMenu()`).
+- **Layout-Falle vermieden:** Wochentag als eigene `.wochentag-label`-Überschrift
+  (wie im Wochenplan), NICHT in die `.lesson-time`-Spalte (dort nur wirklich
+  "HH:MM", ist mit `width: 40px` dafür ausgelegt - "Donnerstag" o. Ä. würde dort
+  umbrechen/überlappen statt hineinzupassen).
+
 ## Bugfix: Notiz-Popup liess sich nicht schliessen ohne Löschen
 
 Tim: nach dem Schreiben/"Bestätigen" einer Notiz im Popup (Stift-Icon oben) blieb
@@ -792,11 +810,7 @@ erzwungen (kurze Seiten haben sonst nicht genug Scroll-Weg für die letzten Sekt
 9. ~~"Flämmchen"-Idee~~ – erledigt, siehe eigener Abschnitt oben.
 10. ~~Homescreen-Kacheln neu anordnen~~ – erledigt in Form von Desktop-Grid +
     vertikaler Icon-Leiste + Tagesfortschritt-Balken, siehe jeweilige Abschnitte oben.
-11. **Busplan-Übersicht** – Tim möchte den festen Fahrplan (`ETAPPE1_FAHRPLAN` u. ä.
-    aus data.js) irgendwo im Menü einsehen können, auch am Vorabend (nicht nur, wenn die
-    Live-Bus-Sektion morgens sowieso schon zeigt). Noch nicht gebaut/gescoped - einfachste
-    Umsetzung wäre ein reiner Lese-Menüpunkt, der `ETAPPE1_FAHRPLAN` (und ggf. die
-    Linien-Infos für Etappe 2/Heimweg) als Tabelle auflistet.
+11. ~~**Busplan-Übersicht**~~ – erledigt, siehe eigener Abschnitt "Busplan (Menü)" oben.
 12. **Belohnungssystem fürs Flämmchen** – Tim: "z. B. einen Film anschauen dürfen" bei
     Streak-Meilensteinen. Noch sehr vage - vor dem Bauen klären: welche Meilensteine
     (z. B. 7/30/100 Tage?), was für Belohnungen (frei eintragbar durch Tim, oder feste
