@@ -383,6 +383,41 @@ Tabs werden jetzt komplett per JS gerendert (`renderListenTabs()`), nicht mehr
 hartkodiert in der HTML. **Noch nicht gebaut:** eigene Listen wieder löschen oder
 umbenennen - bisher nur Anlegen und Punkte hinzufügen/löschen.
 
+## Packliste nur bei echtem Schultag + Kleiderempfehlung nach Wetter
+
+Tim (Freitagabend-Beispiel): die Packliste zeigte auch dann Schulsachen fürs
+"morgen" an, wenn der nächste Tag gar kein Schultag ist (z. B. Freitagabend fürs
+Wochenende). Ausserdem Wunsch: eine Kleiderempfehlung fürs Bereitlegen, basierend
+auf dem Wetterbericht von morgen.
+
+- **`gibtEsSchuleAm(weekday)`** (app.js, bei `istSchulsporttag`) prüft, ob im
+  `STUNDENPLAN` überhaupt eine Lektion an diesem Wochentag steht. `renderPackliste()`
+  nimmt die Schul-Packliste (`PACKLISTE_SCHULE`) jetzt nur noch auf, wenn das für
+  den Folgetag zutrifft - die Sport-Packliste (Schulsport/persönlicher Sport) wird
+  unverändert unabhängig davon ergänzt, falls morgen ein Sporttag ist.
+- **Kleiderempfehlung:** neues Element `#kleider-empfehlung` oben in
+  `#section-packliste` (index.html). `kleiderText(max, min, code)` (app.js, nach
+  `weatherCodeToText`) baut daraus grobe Richtwerte nach Höchsttemperatur (≥22°/
+  ≥16°/≥8°/darunter) plus Hinweis bei Regen- oder Schnee-Wettercode. Schwellenwerte
+  sind eine Einschätzung - bei Bedarf einfach in `kleiderText()` anpassen.
+  `aktualisiereKleiderempfehlung(data, phase)` wird aus `loadWeather(phase)` heraus
+  aufgerufen (dafür bekommt `loadWeather` jetzt die Phase als Parameter) und nutzt
+  `data.daily.*[1]` (Index 1 = morgen, Index 0 = heute, siehe bestehende
+  7-Tage-Prognose weiter unten in derselben Datei).
+- **Sichtbarkeits-Falle:** die Kleiderempfehlung muss unabhängig von der
+  Schul-Packliste sichtbar sein (auch wenn `items` leer ist, z. B. Freitagabend ->
+  Samstag). Deshalb setzt `aktualisiereKleiderempfehlung()` `#section-packliste`
+  bei passender Phase selbst auf sichtbar, statt sich auf `renderPackliste()`s
+  eigene "alles erledigt -> ausblenden"-Logik zu verlassen.
+- **Wochenende-Lücke mitgefixt:** die Tagesphase "wochenende" (Samstag + ganzer
+  Sonntag, siehe `istWochenende()`) hat Packliste/Bus/Lektionen bisher komplett
+  ausgeblendet - auch sonntagabends, wenn eigentlich für den Montag (Schultag)
+  gepackt werden müsste. `applyTimeOfDayLayout()` zeigt in der Phase "wochenende"
+  jetzt abends (`istPacklisteZeit()`) trotzdem die Packliste (inkl.
+  Kleiderempfehlung) an - `renderPackliste()`s eigene `gibtEsSchuleAm()`-Prüfung
+  sorgt dafür, dass an einem echten Samstag/Sonntag-Abend ohne Schule morgen nur
+  die Kleiderempfehlung erscheint, nicht die Schulsachen.
+
 ## Bugfix: "Hinzufügen"-Button in Hausaufgaben/Lernplan tot (0×0-Box)
 
 Tim: Klick auf "Hinzufügen" tat nichts. Ursache: der GENERISCHE Klick-Handler fürs

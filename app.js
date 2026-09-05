@@ -35,7 +35,7 @@ function aktualisiereInhalt() {
   updateSportHinweis(phase);
   renderTagesfortschritt(phase);
   applyTimeOfDayLayout(phase);
-  loadWeather();
+  loadWeather(phase);
   handleBusSection(phase);
   loadNextLesson(phase);
   loadLessons(phase === "wochenende");
@@ -714,7 +714,14 @@ function applyTimeOfDayLayout(phase) {
   if (phase === "wochenende") {
     bus.style.display = "none";
     lessons.style.display = "none";
-    wrap.append(wetter, exams, news);
+    // Trotz "Wochenende" abends die Packliste zeigen, falls morgen (z. B.
+    // Sonntagabend -> Montag) wieder Schule ist - renderPackliste() zeigt
+    // dank gibtEsSchuleAm() ohnehin nur dann Schulsachen an.
+    if (istPacklisteZeit()) {
+      packliste.style.display = "";
+      renderPackliste();
+    }
+    wrap.append(bus, packliste, wetter, exams, news);
     wetter.classList.remove("compact");
     exams.classList.remove("compact");
     return;
@@ -799,7 +806,7 @@ function setGreetingAndDate() {
 }
 
 // --- Wetter (Open-Meteo, kein API-Key nötig) ---
-async function loadWeather() {
+async function loadWeather(phase) {
   const el = document.getElementById("weather-content");
   const label = document.getElementById("weather-label");
   try {
@@ -809,6 +816,7 @@ async function loadWeather() {
     const temp = Math.round(data.current.temperature_2m);
     const desc = weatherCodeToText(data.current.weather_code);
     const naechsteStunde = getNaechsteStundeText(data);
+    aktualisiereKleiderempfehlung(data, phase);
 
     // Erstes Mal in diesem Zeitfenster (morgen/mittag) -> offen,
     // danach komplett reduziert auf das Wort "Wetter"
@@ -934,6 +942,41 @@ function weatherCodeToText(code) {
   if ([85, 86].includes(code)) return "Schneeschauer";
   if ([95, 96, 99].includes(code)) return "Gewitter";
   return "Wechselhaft";
+}
+
+// --- Kleiderempfehlung fürs Bereitlegen am Abend, je nach Wetter von morgen.
+// Grobe Richtwerte nach Höchsttemperatur, plus Hinweis bei Regen/Schnee -
+// Schwellenwerte sind eine Einschätzung, bei Bedarf einfach anpassen. ---
+function kleiderText(max, min, code) {
+  let basis;
+  if (max >= 22) basis = "T-Shirt & kurze Hose reichen";
+  else if (max >= 16) basis = "Lange Hose, Pulli oder leichte Jacke";
+  else if (max >= 8) basis = "Warme Jacke";
+  else basis = "Winterjacke, Mütze & Handschuhe";
+
+  const regenCodes = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99];
+  const schneeCodes = [71, 73, 75, 77, 85, 86];
+  let zusatz = "";
+  if (regenCodes.includes(code)) zusatz = " – Regenschutz einpacken";
+  else if (schneeCodes.includes(code)) zusatz = " – evtl. Schnee, warm anziehen";
+
+  return `👕 Morgen ${Math.round(max)}° / ${Math.round(min)}°: ${basis}${zusatz}`;
+}
+
+// Nur in der Packliste-Phase relevant (heimweg/abend, ab PACKLISTE_AB_STUNDE) -
+// dieselbe Bedingung wie in applyTimeOfDayLayout(), damit die Empfehlung nie
+// ausserhalb dieses Fensters (z. B. am Wochenende) auftaucht.
+function aktualisiereKleiderempfehlung(data, phase) {
+  const el = document.getElementById("kleider-empfehlung");
+  if (!el) return;
+  const relevantePhase = phase === "heimweg" || phase === "abend" || phase === "wochenende";
+  if (!relevantePhase || !istPacklisteZeit() || !data.daily || data.daily.temperature_2m_max.length < 2) {
+    el.style.display = "none";
+    return;
+  }
+  el.textContent = kleiderText(data.daily.temperature_2m_max[1], data.daily.temperature_2m_min[1], data.daily.weather_code[1]);
+  el.style.display = "";
+  document.getElementById("section-packliste").style.display = "";
 }
 
 // --- Bus: Hinweg (Etappe 1 fest + Etappe 2 live, mit Lauf-Empfehlung) ---
@@ -1388,7 +1431,9 @@ function renderPackliste() {
   morgen.setDate(morgen.getDate() + 1);
   const morgenWeekday = morgen.getDay();
 
-  let items = ladeListe(LISTEN_KONFIG.packliste_schule);
+  // Schulsachen nur einpacken, wenn morgen überhaupt Schule ist (z. B. an
+  // einem Freitagabend braucht es fürs schulfreie Wochenende keine Schulsachen)
+  let items = gibtEsSchuleAm(morgenWeekday) ? ladeListe(LISTEN_KONFIG.packliste_schule) : [];
   if (istSchulsporttag(morgenWeekday) || istPersoenlicherSporttag(morgenWeekday)) {
     items = items.concat(ladeListe(LISTEN_KONFIG.packliste_sport));
   }
@@ -1414,6 +1459,9 @@ function renderAbendroutine() {
 
   renderChecklist("abendroutine-content", "dayguide_abendroutine", items, pruefeVollstaendig);
   pruefeVollstaendig();
+}
+function gibtEsSchuleAm(weekday) {
+  return STUNDENPLAN.some(l => l.weekday === weekday);
 }
 function istSchulsporttag(weekday) {
   return STUNDENPLAN.some(l => l.weekday === weekday && l.subject.toUpperCase().includes("SPO"));
