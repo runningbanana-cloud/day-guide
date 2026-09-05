@@ -15,6 +15,13 @@ const WECKER_VORLAUF_MIN = 55;
 // Ab welcher Uhrzeit (Stunde, 0-23) der Wecker-Hinweis überhaupt erscheint.
 const ABEND_STUNDE = 21;
 
+// Am Wochenende gibt es keinen festen Bus/Schule fürs Berechnen eines
+// Weckvorschlags - stattdessen: aktuelle Uhrzeit + Einschlafzeit + Schlafdauer,
+// damit Tim trotzdem einen Wecker stellen kann, statt "einfach so" (unnötig
+// lange) auszuschlafen. Beide Werte einzeln einstellbar, falls sich das ändert.
+const EINSCHLAFZEIT_MIN = 10;
+const SCHLAFDAUER_STUNDEN = 8;
+
 // Wie lange (in Minuten) nach Unterrichtsende die Heimweg-Anzeige noch
 // sichtbar bleibt. Danach wird angenommen, dass du längst zuhause bist.
 const HEIMWEG_FENSTER_MIN = 90;

@@ -94,6 +94,11 @@ function init() {
   setupFlaemmchen();
   setupKalenderWidgetPopup();
   setInterval(updateFavicon, 30 * 60 * 1000); // alle 30 Min. neu zeichnen
+  // Der Wochenend-Weckvorschlag rechnet mit der aktuellen Uhrzeit ("jetzt
+  // einschlafen -> wach um X") - muss deshalb auch ohne App-Wechsel/Reload
+  // laufend nachgezogen werden, sonst zeigt er nach einer Weile eine
+  // veraltete Aufwachzeit.
+  setInterval(updateWeckerHinweis, 60 * 1000);
 
   // iOS friert eine als App gespeicherte Seite im Hintergrund ein, statt sie
   // laufen zu lassen oder neu zu laden - beim Zurückkommen (z. B. nach dem
@@ -832,13 +837,14 @@ async function loadWeather(phase) {
   const el = document.getElementById("weather-content");
   const label = document.getElementById("weather-label");
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LOCATION.lat}&longitude=${WEATHER_LOCATION.lon}&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FZurich&forecast_days=8`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LOCATION.lat}&longitude=${WEATHER_LOCATION.lon}&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FZurich&forecast_days=8`;
     const res = await fetch(url);
     const data = await res.json();
     const temp = Math.round(data.current.temperature_2m);
     const desc = weatherCodeToText(data.current.weather_code);
     const naechsteStunde = getNaechsteStundeText(data);
     aktualisiereKleiderempfehlung(data, phase);
+    aktualisiereRegenHinweis(data);
 
     // Erstes Mal in diesem Zeitfenster (morgen/mittag) -> offen,
     // danach komplett reduziert auf das Wort "Wetter"
@@ -966,6 +972,11 @@ function weatherCodeToText(code) {
   return "Wechselhaft";
 }
 
+// Von mehreren Stellen genutzt (Kleiderempfehlung, Regenjacke-Hinweis) -
+// deshalb einmal zentral statt an jeder Stelle einzeln aufgeführt.
+const REGEN_CODES = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99];
+const SCHNEE_CODES = [71, 73, 75, 77, 85, 86];
+
 // --- Kleiderempfehlung fürs Bereitlegen am Abend, je nach Wetter von morgen.
 // Grobe Richtwerte nach Höchsttemperatur, plus Hinweis bei Regen/Schnee -
 // Schwellenwerte sind eine Einschätzung, bei Bedarf einfach anpassen. ---
@@ -976,13 +987,43 @@ function kleiderText(max, min, code) {
   else if (max >= 8) basis = "Warme Jacke";
   else basis = "Winterjacke, Mütze & Handschuhe";
 
-  const regenCodes = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99];
-  const schneeCodes = [71, 73, 75, 77, 85, 86];
   let zusatz = "";
-  if (regenCodes.includes(code)) zusatz = " – Regenschutz einpacken";
-  else if (schneeCodes.includes(code)) zusatz = " – evtl. Schnee, warm anziehen";
+  if (REGEN_CODES.includes(code)) zusatz = " – Regenschutz einpacken";
+  else if (SCHNEE_CODES.includes(code)) zusatz = " – evtl. Schnee, warm anziehen";
 
   return `Morgen ${Math.round(max)}° / ${Math.round(min)}°: ${basis}${zusatz}`;
+}
+
+// --- Regenjacke-Hinweis für die Morgenroutine (nur Schultage, siehe
+// aktualisiereRegenHinweis) - Tim: soll IMMER morgens sagen, ob es heute
+// regnen könnte, nicht nur an Sporttagen. Nutzt sowohl den Wettercode
+// (Regen/Schauer/Gewitter) als auch die Niederschlagswahrscheinlichkeit, falls
+// der Code allein nicht eindeutig auf Regen zeigt (z. B. "Bewölkt" mit 50%
+// Regenwahrscheinlichkeit). Schwelle 40% ist eine Einschätzung. ---
+function regenjackeText(code, wahrscheinlichkeit) {
+  const regenCodeSagt = REGEN_CODES.includes(code);
+  const prozentSagt = wahrscheinlichkeit != null && wahrscheinlichkeit >= 40;
+  if (regenCodeSagt || prozentSagt) {
+    const prozentText = wahrscheinlichkeit != null ? ` (${wahrscheinlichkeit}%)` : "";
+    return `Heute könnte es regnen${prozentText} – Regenjacke mitnehmen`;
+  }
+  return "Heute vermutlich kein Regen – keine Regenjacke nötig";
+}
+
+// Nur an Schultagen relevant - die Morgenroutine-Sektion (und damit dieses
+// Element darin) ist ohnehin nur in Phase "vor" auf dem Handy sichtbar (siehe
+// applyTimeOfDayLayout), an schulfreien Tagen/am Wochenende also schon
+// automatisch ausgeblendet. Hier deshalb nur den Text setzen, keine eigene
+// Sichtbarkeits-Logik nötig.
+function aktualisiereRegenHinweis(data) {
+  const el = document.getElementById("regen-hinweis");
+  if (!el || !data.daily) return;
+  const code = data.daily.weather_code[0];
+  const wahrscheinlichkeit = data.daily.precipitation_probability_max
+    ? Math.round(data.daily.precipitation_probability_max[0])
+    : null;
+  el.textContent = regenjackeText(code, wahrscheinlichkeit);
+  el.style.display = "";
 }
 
 // Nur in der Packliste-Phase relevant (heimweg/abend, ab PACKLISTE_AB_STUNDE) -
@@ -1245,9 +1286,23 @@ function updateWeckerHinweis() {
   const morgen = new Date();
   morgen.setDate(morgen.getDate() + 1);
   const busZeit = ETAPPE1_FAHRPLAN[morgen.getDay()];
+  const weckerIcon = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="13" r="8"></circle>
+      <path d="M12 9v4l3 2"></path>
+      <path d="M5 3l-2 2"></path>
+      <path d="M19 3l2 2"></path>
+    </svg>`;
 
   if (!busZeit) {
-    el.style.display = "none"; // morgen kein fixer Bus (z. B. Wochenende)
+    // Kein fixer Bus/Schule morgen (Wochenende) - kein fester Zielwert
+    // vorhanden, also stattdessen live "wenn ich JETZT einschlafe, wache ich
+    // um X auf", damit trotzdem ein Wecker gestellt werden kann. Läuft mit
+    // (siehe setInterval in init()), weil sich "jetzt" laufend ändert.
+    const aufwachzeit = new Date(now.getTime() + (EINSCHLAFZEIT_MIN + SCHLAFDAUER_STUNDEN * 60) * 60000);
+    const aufwachzeitStr = aufwachzeit.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+    el.style.display = "flex";
+    el.innerHTML = `${weckerIcon} Jetzt ins Bett → Wecker auf ${aufwachzeitStr}`;
     return;
   }
 
@@ -1258,14 +1313,7 @@ function updateWeckerHinweis() {
   const weckzeitStr = weckzeit.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
 
   el.style.display = "flex";
-  el.innerHTML = `
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="13" r="8"></circle>
-      <path d="M12 9v4l3 2"></path>
-      <path d="M5 3l-2 2"></path>
-      <path d="M19 3l2 2"></path>
-    </svg>
-    ${weckzeitStr}`;
+  el.innerHTML = `${weckerIcon} ${weckzeitStr}`;
 }
 
 // --- Generische Checkliste mit Tages-Speicherung im Browser ---

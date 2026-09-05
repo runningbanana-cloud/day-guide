@@ -420,6 +420,36 @@ auf dem Wetterbericht von morgen.
   sorgt dafür, dass an einem echten Samstag/Sonntag-Abend ohne Schule morgen nur
   die Kleiderempfehlung erscheint, nicht die Schulsachen.
 
+## Regenjacke-Hinweis (Morgenroutine) + Wochenend-Weckvorschlag
+
+Zwei kleine, unabhängige Ergänzungen auf Tims Wunsch:
+
+- **Regenjacke-Hinweis:** neues Element `#regen-hinweis` in `#section-morgenroutine`
+  (index.html), unterhalb der Checkliste. `regenjackeText(code, wahrscheinlichkeit)`
+  (app.js, direkt nach `kleiderText`) sagt anhand des heutigen Wettercodes UND der
+  Niederschlagswahrscheinlichkeit (`precipitation_probability_max`, neu zur
+  Open-Meteo-Abfrage in `loadWeather()` hinzugefügt), ob eine Regenjacke nötig ist -
+  bewusst JEDEN Schultag, nicht nur an Sporttagen (Tims ausdrücklicher Wunsch).
+  `aktualisiereRegenHinweis(data)` wird aus `loadWeather()` heraus aufgerufen, genau
+  wie `aktualisiereKleiderempfehlung()`. Braucht **keine** eigene Sichtbarkeits-/
+  Grid-Logik: die Morgenroutine-Sektion ist ohnehin nur in Phase "vor" UND nur auf
+  dem Handy sichtbar (siehe `applyTimeOfDayLayout()`) - an schulfreien Tagen also
+  schon automatisch weg, ohne dass dieser Code das selbst prüfen müsste.
+  `REGEN_CODES`/`SCHNEE_CODES` sind jetzt geteilte Konstanten (vorher zwei separate
+  Arrays nur in `kleiderText()`), damit Kleiderempfehlung und Regenjacke-Hinweis
+  dieselbe Einordnung verwenden.
+- **Wochenend-Weckvorschlag:** Tim wollte einen Wecker-Vorschlag auch an
+  Wochenend-Abenden (kein fester Bus/Schule morgen, siehe `ETAPPE1_FAHRPLAN`).
+  `updateWeckerHinweis()` (app.js) zeigt in diesem Fall statt "kein Hinweis" jetzt
+  live "Jetzt ins Bett → Wecker auf HH:MM" = aktuelle Uhrzeit + `EINSCHLAFZEIT_MIN`
+  (10 Min., data.js) + `SCHLAFDAUER_STUNDEN` (8 Std., data.js). Rechnet sich bei
+  jedem Aufruf frisch anhand von "jetzt" - deshalb zusätzlich
+  `setInterval(updateWeckerHinweis, 60 * 1000)` in `init()`, damit der Vorschlag
+  auch ohne App-Wechsel/Reload nicht veraltet, während Tim tatsächlich abends davor
+  sitzt und überlegt wann er schlafen geht. Am Sonntagabend (morgen = Montag, hat
+  einen Bus-Eintrag) greift weiterhin die bestehende feste Logik - der neue Zweig
+  betrifft nur Freitag-/Samstagabend (morgen = Wochenende, kein Eintrag).
+
 ## Bugfix: Notiz-Popup liess sich nicht schliessen ohne Löschen
 
 Tim: nach dem Schreiben/"Bestätigen" einer Notiz im Popup (Stift-Icon oben) blieb
