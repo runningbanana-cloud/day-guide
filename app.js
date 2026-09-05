@@ -960,7 +960,7 @@ function kleiderText(max, min, code) {
   if (regenCodes.includes(code)) zusatz = " – Regenschutz einpacken";
   else if (schneeCodes.includes(code)) zusatz = " – evtl. Schnee, warm anziehen";
 
-  return `👕 Morgen ${Math.round(max)}° / ${Math.round(min)}°: ${basis}${zusatz}`;
+  return `Morgen ${Math.round(max)}° / ${Math.round(min)}°: ${basis}${zusatz}`;
 }
 
 // Nur in der Packliste-Phase relevant (heimweg/abend, ab PACKLISTE_AB_STUNDE) -

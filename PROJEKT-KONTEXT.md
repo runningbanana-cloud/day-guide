@@ -399,7 +399,9 @@ auf dem Wetterbericht von morgen.
   `#section-packliste` (index.html). `kleiderText(max, min, code)` (app.js, nach
   `weatherCodeToText`) baut daraus grobe Richtwerte nach Höchsttemperatur (≥22°/
   ≥16°/≥8°/darunter) plus Hinweis bei Regen- oder Schnee-Wettercode. Schwellenwerte
-  sind eine Einschätzung - bei Bedarf einfach in `kleiderText()` anpassen.
+  sind eine Einschätzung - bei Bedarf einfach in `kleiderText()` anpassen. **Kein
+  Emoji im Text** - Tim will grundsätzlich keine Emojis in der App (siehe "Wichtige
+  Vorlieben von Tim" weiter unten).
   `aktualisiereKleiderempfehlung(data, phase)` wird aus `loadWeather(phase)` heraus
   aufgerufen (dafür bekommt `loadWeather` jetzt die Phase als Parameter) und nutzt
   `data.daily.*[1]` (Index 1 = morgen, Index 0 = heute, siehe bestehende
@@ -745,4 +747,7 @@ erzwungen (kurze Seiten haben sonst nicht genug Scroll-Weg für die letzten Sekt
 - Bei Web-Chat: alle Dateien zusammen bereitstellen, damit "Alles herunterladen"
   funktioniert (für Claude Code irrelevant, da du direkt im Ordner arbeitest)
 - Nach jeder Änderung die Live-URL zum Testen mitgeben
-- Niemals Emojis, auch nicht im Chat mit ihm
+- Niemals Emojis - weder im Chat mit ihm NOCH in Texten/Labels innerhalb der App
+  selbst (z. B. Checklisten, Empfehlungstexte). Ist schon mal übersehen worden
+  (Kleiderempfehlung hatte kurz ein 👕-Emoji drin) - beim Formulieren neuer
+  App-Texte aktiv daran denken.
