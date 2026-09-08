@@ -859,6 +859,21 @@
     align-items: center;
     justify-content: center;
   }
+  /* Verschieben-Datumsfeld pro Prüfungszeile - bewusst KEIN .formular-feld
+     (das ist auf display:block/width:100% für eigene Zeilen ausgelegt, würde
+     hier die Reihe aus Fach-Text/Datum/Löschen-Kreuz sprengen). */
+  .pruefung-datum-feld {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 4px 0;
+    outline: none;
+    width: 118px;
+    flex-shrink: 0;
+  }
   .todo-ordner-label {
     font-size: 11px;
     text-transform: uppercase;
@@ -1058,6 +1073,7 @@
             <div class="menu-list-item" data-schule-view="stundenplan">Morgiger Stundenplan</div>
             <div class="menu-list-item" data-schule-view="hausaufgaben">Hausaufgaben</div>
             <div class="menu-list-item" data-schule-view="lernplan">Lernplan</div>
+            <div class="menu-list-item" data-schule-view="pruefungen">Prüfungen</div>
           </div>
 
           <div id="schule-detail" style="display:none;">
@@ -1095,6 +1111,18 @@
               <div class="formular-submit" id="lp-submit">Hinzufügen</div>
               <div class="section-label">Eingetragen</div>
               <div id="lernplan-liste"></div>
+            </div>
+
+            <!-- Prüfungen: nicht mehr nur über data.js, sondern direkt in der
+                 App neu eintragbar UND verschiebbar (Datumsfeld pro Zeile). -->
+            <div id="schule-pruefungen" style="display:none;">
+              <div class="section-label">Prüfungen</div>
+              <select class="formular-feld" id="pr-fach"></select>
+              <input type="text" class="formular-feld" id="pr-text" placeholder="Was für eine Prüfung?" maxlength="80">
+              <input type="date" class="formular-feld" id="pr-datum">
+              <div class="formular-submit" id="pr-submit">Hinzufügen</div>
+              <div class="section-label">Eingetragen</div>
+              <div id="pruefungen-liste"></div>
             </div>
           </div>
         </div>
@@ -1349,7 +1377,7 @@
 <!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
      zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
      verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
-<script src="data.js?v=14"></script>
-<script src="app.js?v=14"></script>
+<script src="data.js?v=15"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>

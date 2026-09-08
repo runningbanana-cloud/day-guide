@@ -1601,10 +1601,29 @@ function loadLessons(wochenende) {
 }
 
 // --- Prüfungen ---
+// PRUEFUNGEN (data.js) ist wie MORGENROUTINE/PACKLISTE_SCHULE/... nur noch die
+// Werkseinstellung beim allerersten Laden - danach zählt, was in localStorage
+// steht (gleiches Prinzip wie bei den editierbaren Listen, siehe
+// "Editierbare Listen" in PROJEKT-KONTEXT.md). Tim wollte Prüfungen direkt in
+// der App neu eintragen UND verschieben können, nicht nur einmalig über
+// data.js. Jeder Eintrag bekommt eine eigene ID, damit sich einzelne Einträge
+// (nicht nur per Index, der sich beim Sortieren/Filtern verschiebt) gezielt
+// bearbeiten/löschen lassen.
+function ladePruefungen() {
+  const gespeichert = localStorage.getItem("dayguide_pruefungen");
+  if (gespeichert) return JSON.parse(gespeichert);
+  const uebernommen = PRUEFUNGEN.map((p, i) => ({ id: `initial-${i}`, date: p.date, subject: p.subject }));
+  speicherePruefungen(uebernommen);
+  return uebernommen;
+}
+function speicherePruefungen(arr) {
+  localStorage.setItem("dayguide_pruefungen", JSON.stringify(arr));
+}
+
 function loadExams() {
   const el = document.getElementById("exams-content");
   const now = new Date();
-  const kommende = PRUEFUNGEN
+  const kommende = ladePruefungen()
     .map(p => ({ ...p, dateObj: new Date(p.date) }))
     .filter(p => p.dateObj >= now)
     .sort((a, b) => a.dateObj - b.dateObj);
@@ -1650,7 +1669,7 @@ function examRowHtml(p, now) {
   return `
     <div class="exam-row">
       <span>${p.subject}</span>
-      <span class="exam-days">in ${tage} Tag${tage === 1 ? "" : "en"}</span>
+      <span class="exam-days">${formatDatumKurz(p.date)} · in ${tage} Tag${tage === 1 ? "" : "en"}</span>
     </div>`;
 }
 
@@ -1786,6 +1805,7 @@ function zeigeSchuleDetail(view) {
   if (view === "stundenplan") renderMorgenStundenplan();
   if (view === "hausaufgaben") renderHausaufgabenListe();
   if (view === "lernplan") renderLernplanListe();
+  if (view === "pruefungen") renderPruefungenListe();
 }
 
 function setupSchuleMenu() {
@@ -1796,6 +1816,7 @@ function setupSchuleMenu() {
 
   setupHausaufgabenManager();
   setupLernplanManager();
+  setupPruefungenManager();
 
   // Schnellzugriff (nur Hausaufgaben, siehe Tims Wunsch): Menü öffnen und
   // direkt ins Formular springen, ohne über die Schule-Liste zu gehen.
@@ -1827,7 +1848,7 @@ function alleFaecher() {
 // Nächste anstehende Prüfung, deren Fach-Kürzel mit dem gewählten Fach beginnt.
 function naechstePruefungFuerFach(fach) {
   const heute = heuteStr();
-  return PRUEFUNGEN
+  return ladePruefungen()
     .filter(p => p.date >= heute && p.subject.startsWith(fach))
     .sort((a, b) => a.date.localeCompare(b.date))[0] || null;
 }
@@ -1974,6 +1995,70 @@ function setupLernplanManager() {
 
 function renderLernplanListe() {
   renderFolderListe("lernplan-liste", "lernplan", "Kein Lernplan eingetragen.");
+}
+
+// --- Prüfungsmanager: Fach -> Beschreibung -> Datum -> Hinzufügen, genau wie
+// der Lernplanmanager. Zusätzlich pro Eintrag ein Datumsfeld zum Verschieben
+// und ein Löschen-Button - Tim wollte Prüfungen nicht mehr nur einmalig über
+// data.js eintragen, sondern jederzeit selbst neu anlegen oder verschieben. ---
+function setupPruefungenManager() {
+  const fachSelect = document.getElementById("pr-fach");
+  fachSelect.innerHTML = alleFaecher().map(f => `<option value="${f}">${f}</option>`).join("");
+
+  document.getElementById("pr-submit").addEventListener("click", () => {
+    const fach = fachSelect.value;
+    const was = document.getElementById("pr-text").value.trim();
+    const datum = document.getElementById("pr-datum").value;
+    if (!fach || !was || !datum) return;
+
+    const alle = ladePruefungen();
+    alle.push({ id: `${Date.now()}`, date: datum, subject: `${fach} – ${was}` });
+    speicherePruefungen(alle);
+
+    document.getElementById("pr-text").value = "";
+    document.getElementById("pr-datum").value = "";
+    renderPruefungenListe();
+    loadExams();
+    renderKalenderWidget();
+  });
+}
+
+function renderPruefungenListe() {
+  const el = document.getElementById("pruefungen-liste");
+  if (!el) return;
+  const pruefungen = ladePruefungen().sort((a, b) => a.date.localeCompare(b.date));
+
+  el.innerHTML = pruefungen.length === 0
+    ? `<div class="empty">Keine Prüfungen eingetragen.</div>`
+    : pruefungen.map(p => `
+        <div class="checklist-row todo-row" data-id="${p.id}">
+          <span style="flex:1;">${p.subject}</span>
+          <input type="date" class="pruefung-datum-feld" value="${p.date}">
+          <span class="todo-delete">✕</span>
+        </div>`).join("");
+
+  el.querySelectorAll(".todo-row").forEach(row => {
+    const id = row.dataset.id;
+    row.querySelector(".pruefung-datum-feld").addEventListener("change", (e) => {
+      if (!e.target.value) return; // leeres Datum ignorieren, nicht speichern
+      const alle = ladePruefungen();
+      const eintrag = alle.find(p => p.id === id);
+      if (eintrag) {
+        eintrag.date = e.target.value;
+        speicherePruefungen(alle);
+        renderPruefungenListe();
+        loadExams();
+        renderKalenderWidget();
+      }
+    });
+    row.querySelector(".todo-delete").addEventListener("click", (e) => {
+      e.preventDefault();
+      speicherePruefungen(ladePruefungen().filter(p => p.id !== id));
+      renderPruefungenListe();
+      loadExams();
+      renderKalenderWidget();
+    });
+  });
 }
 
 // --- Desktop-Widget (siehe Media Query in index.html, nur ab 900px sichtbar):
@@ -2256,7 +2341,7 @@ function kalenderGridHtml(jahr, monat) {
   const heute = new Date();
 
   const pruefungsTage = new Set(
-    PRUEFUNGEN.filter(p => {
+    ladePruefungen().filter(p => {
       const d = new Date(p.date);
       return d.getFullYear() === jahr && d.getMonth() === monat;
     }).map(p => new Date(p.date).getDate())

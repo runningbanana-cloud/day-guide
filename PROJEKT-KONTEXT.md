@@ -468,6 +468,41 @@ nachschauen kann (Backlog-Punkt, siehe "Bekannte offene Punkte" unten).
   "HH:MM", ist mit `width: 40px` dafür ausgelegt - "Donnerstag" o. Ä. würde dort
   umbrechen/überlappen statt hineinzupassen).
 
+## Prüfungsmanager (Schule-Untermenü) + Datum bei den Prüfungen sichtbar
+
+Tim: Prüfungen bisher nur einmalig über `PRUEFUNGEN` in data.js eintragbar - wollte
+sie direkt in der App neu eintragen UND verschieben können (nicht nur die alten
+bearbeiten). Ausserdem sollte bei "Nächste Prüfungen" auch das Datum stehen, nicht
+nur "in X Tagen".
+
+- **`PRUEFUNGEN` ist jetzt auch nur noch die Werkseinstellung**, exakt nach dem
+  bei den editierbaren Listen etablierten Muster (siehe "Editierbare Listen"
+  oben): `ladePruefungen()`/`speicherePruefungen()` (app.js, direkt vor
+  `loadExams()`) lesen/schreiben `localStorage.dayguide_pruefungen` - beim
+  allerersten Aufruf wird `PRUEFUNGEN` übernommen, jeder Eintrag bekommt dabei
+  eine eigene `id` (`initial-<Index>`, neue Einträge `Date.now()`), damit sich
+  einzelne Prüfungen gezielt bearbeiten/löschen lassen (nicht nur per Index, der
+  sich beim Sortieren verschieben würde). Alle drei bisherigen Lesestellen
+  (`loadExams()`, `naechstePruefungFuerFach()`, `kalenderGridHtml()`s
+  Prüfungs-Punkt im Kalender) nutzen jetzt `ladePruefungen()` statt der rohen
+  Konstante - neue/verschobene Prüfungen wirken sich dadurch sofort überall aus.
+- **Neuer Menüpunkt "Prüfungen"** im Schule-Untermenü (`schule-pruefungen`),
+  gleiches Formular-Muster wie beim Lernplanmanager: Fach-Auswahl (`alleFaecher()`)
+  + Freitext + Datum + "Hinzufügen" (`setupPruefungenManager()`), baut daraus
+  `subject = "<Fach> – <Text>"` (gleiches Format wie die bisherigen data.js-
+  Einträge, wichtig für `naechstePruefungFuerFach()`s `startsWith(fach)`-Check).
+  Darunter `renderPruefungenListe()`: jede eingetragene Prüfung mit einem
+  **Datumsfeld direkt in der Zeile** (`.pruefung-datum-feld`, `<input type=date>`,
+  `change` schreibt sofort zurück - das ist das "Verschieben") und einem
+  Löschen-Kreuz (`.todo-delete`, wie bei der To-Do-Liste). Bewusst KEIN
+  `.formular-feld` fürs Datumsfeld - diese Klasse ist auf `display:block;
+  width:100%` für eigene Zeilen ausgelegt, hätte die Fach-Text/Datum/Löschen-
+  Reihe gesprengt; eigene schlanke Klasse stattdessen.
+- **Datum bei "Nächste Prüfungen"**: `examRowHtml()` zeigt jetzt
+  `${formatDatumKurz(p.date)} · in X Tagen` statt nur "in X Tagen" - gilt für die
+  Startseiten-Kachel UND die aufgeklappte "Alle anstehenden"-Liste (beide nutzen
+  dieselbe Funktion).
+
 ## Bugfix: Notiz-Popup liess sich nicht schliessen ohne Löschen
 
 Tim: nach dem Schreiben/"Bestätigen" einer Notiz im Popup (Stift-Icon oben) blieb
