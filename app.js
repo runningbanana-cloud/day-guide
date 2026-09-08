@@ -61,7 +61,7 @@ function aktualisiereInhalt() {
 // sich jede Spalte wie eine eigene, in sich geschlossene Liste. ---
 const SPALTE_1_IDS = [
   "section-weather", "section-bus", "section-lessons", "section-nextlesson",
-  "section-exams", "section-morgenroutine", "section-packliste",
+  "section-exams", "section-morgenroutine", "section-auspacken", "section-packliste",
   "section-abendroutine", "section-hausaufgaben-erinnerung", "section-lese-erinnerung",
 ];
 const SPALTE_2_IDS = [
@@ -728,6 +728,7 @@ function applyTimeOfDayLayout(phase) {
   const morgenroutine = document.getElementById("section-morgenroutine");
   const packliste = document.getElementById("section-packliste");
   const abendroutine = document.getElementById("section-abendroutine");
+  const auspacken = document.getElementById("section-auspacken");
   const wrap = wetter.parentElement;
 
   // Grundzustand, wird unten je nach Phase wieder angepasst
@@ -737,6 +738,7 @@ function applyTimeOfDayLayout(phase) {
   morgenroutine.style.display = "none";
   packliste.style.display = "none";
   abendroutine.style.display = "none";
+  auspacken.style.display = "none";
 
   if (phase === "wochenende") {
     bus.style.display = "none";
@@ -766,13 +768,17 @@ function applyTimeOfDayLayout(phase) {
 
   if (phase === "heimweg") {
     lessons.style.display = "none";
+    // Auspacken NICHT an istPacklisteZeit() gekoppelt (die ist für abends
+    // gedacht) - direkt beim Heimkommen zeigen, siehe renderAuspacken().
+    auspacken.style.display = "";
+    renderAuspacken();
     if (istPacklisteZeit()) {
       packliste.style.display = "";
       renderPackliste();
       abendroutine.style.display = "";
       renderAbendroutine();
     }
-    wrap.append(bus, packliste, abendroutine, wetter, exams, news);
+    wrap.append(bus, auspacken, packliste, abendroutine, wetter, exams, news);
     bus.classList.remove("compact");
     wetter.classList.add("compact");
     exams.classList.add("compact");
@@ -782,13 +788,17 @@ function applyTimeOfDayLayout(phase) {
   if (phase === "abend") {
     bus.style.display = "none";
     lessons.style.display = "none";
+    // Bleibt bis zum Abhaken sichtbar, auch wenn "heimweg" schon vorbei ist
+    // (falls Tim die Erinnerung nicht sofort beim Heimkommen abhakt).
+    auspacken.style.display = "";
+    renderAuspacken();
     if (istPacklisteZeit()) {
       packliste.style.display = "";
       renderPackliste();
       abendroutine.style.display = "";
       renderAbendroutine();
     }
-    wrap.append(packliste, abendroutine, wetter, exams, news);
+    wrap.append(auspacken, packliste, abendroutine, wetter, exams, news);
     wetter.classList.remove("compact");
     exams.classList.remove("compact");
     return;
@@ -1349,6 +1359,7 @@ const LISTEN_KONFIG = {
   packliste_schule: { key: "dayguide_liste_packliste_schule", standard: PACKLISTE_SCHULE, label: "Packliste (Schule)" },
   packliste_sport: { key: "dayguide_liste_packliste_sport", standard: PACKLISTE_SPORT, label: "Packliste (Sport)" },
   abendroutine: { key: "dayguide_liste_abendroutine", standard: ABENDROUTINE, label: "Abendroutine" },
+  auspacken: { key: "dayguide_liste_auspacken", standard: AUSPACKEN, label: "Auspacken" },
 };
 
 // Zusätzlich zu den vier festen Listen kann Tim eigene, frei benannte Listen
@@ -1535,6 +1546,26 @@ function renderAbendroutine() {
   renderChecklist("abendroutine-content", "dayguide_abendroutine", items, pruefeVollstaendig);
   pruefeVollstaendig();
 }
+
+// --- Auspacken direkt nach der Schule: Essensbox/Sportsachen aus dem
+// Rucksack räumen. Bewusst NICHT an istPacklisteZeit() (ab PACKLISTE_AB_STUNDE)
+// gekoppelt wie Packliste/Abendroutine, sondern schon ab Phase "heimweg" -
+// Tim will direkt beim Heimkommen (nachmittags) daran erinnert werden, nicht
+// erst abends. Bleibt bis zum Abhaken sichtbar (auch über Phase "abend"
+// hinweg), siehe applyTimeOfDayLayout(). ---
+function renderAuspacken() {
+  const items = ladeListe(LISTEN_KONFIG.auspacken);
+
+  function pruefeVollstaendig() {
+    const heute = heuteStr();
+    const alleErledigt = items.every((_, i) => localStorage.getItem(`dayguide_auspacken_${heute}_${i}`) === "1");
+    document.getElementById("section-auspacken").style.display = alleErledigt ? "none" : "";
+  }
+
+  renderChecklist("auspacken-content", "dayguide_auspacken", items, pruefeVollstaendig);
+  pruefeVollstaendig();
+}
+
 function gibtEsSchuleAm(weekday) {
   return STUNDENPLAN.some(l => l.weekday === weekday);
 }

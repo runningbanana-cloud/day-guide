@@ -974,6 +974,7 @@
     #section-nextlesson,
     #section-exams,
     #section-morgenroutine,
+    #section-auspacken,
     #section-packliste,
     #section-abendroutine,
     #section-hausaufgaben-erinnerung,
@@ -1354,6 +1355,12 @@
     <div id="bus-content" class="empty">Lädt…</div>
   </div>
 
+  <!-- Auspacken direkt nach der Schule (Heimweg/Abend sichtbar) -->
+  <div class="section" id="section-auspacken" style="display:none;">
+    <div class="section-label">Auspacken</div>
+    <div id="auspacken-content" class="checklist-collapse"></div>
+  </div>
+
   <!-- Stundenplan -->
   <div class="section" id="section-lessons">
     <div class="section-label">Stundenplan heute</div>
@@ -1377,7 +1384,7 @@
 <!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
      zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
      verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
-<script src="data.js?v=15"></script>
-<script src="app.js?v=15"></script>
+<script src="data.js?v=16"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>

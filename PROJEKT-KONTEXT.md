@@ -503,6 +503,24 @@ nur "in X Tagen".
   Startseiten-Kachel UND die aufgeklappte "Alle anstehenden"-Liste (beide nutzen
   dieselbe Funktion).
 
+## Auspacken-Erinnerung (direkt nach der Schule)
+
+Tim: Erinnerung, dass er beim Heimkommen Essensbox und Sportsachen aus dem
+Rucksack räumt.
+
+- Fünfte editierbare Liste (`AUSPACKEN` in data.js, Standard: "Essensbox
+  ausräumen", "Sportsachen auspacken") nach demselben Muster wie
+  Morgenroutine/Packliste/Abendroutine - taucht automatisch als Tab im
+  Listen-Editor auf (`alleListenKonfigs()` baut das aus `LISTEN_KONFIG`).
+- `renderAuspacken()` (app.js, direkt nach `renderAbendroutine()`) + neue
+  Sektion `#section-auspacken` (index.html, nach der Bus-Sektion). Blendet sich
+  wie die anderen Checklisten automatisch aus, sobald alles abgehakt ist.
+- **Bewusst NICHT an `istPacklisteZeit()` gekoppelt** (das ist der Ab-Abend-
+  Schwellenwert für Packliste/Abendroutine) - die Auspacken-Erinnerung soll
+  direkt beim Heimkommen erscheinen, also schon in Phase "heimweg" (nachmittags),
+  nicht erst abends. Bleibt zusätzlich über Phase "abend" hinweg sichtbar (bis
+  abgehakt), falls Tim es nicht sofort macht.
+
 ## Bugfix: Notiz-Popup liess sich nicht schliessen ohne Löschen
 
 Tim: nach dem Schreiben/"Bestätigen" einer Notiz im Popup (Stift-Icon oben) blieb

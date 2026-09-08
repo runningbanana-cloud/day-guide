@@ -44,6 +44,9 @@ const PACKLISTE_SPORT = ["Sportschuhe", "Sporthose", "Sport-T-Shirt"];
 // --- Abendroutine (wird zusammen mit der Packliste angezeigt) ---
 const ABENDROUTINE = ["Kleider für morgen bereitlegen", "Gesicht waschen", "Zähne putzen"];
 
+// --- Auspacken direkt nach der Schule (Heimweg/Abend sichtbar) ---
+const AUSPACKEN = ["Essensbox ausräumen", "Sportsachen auspacken"];
+
 // Ab welcher Uhrzeit (Dezimalstunden, z. B. 20.5 = 20:30) die Packliste
 // abends überhaupt erscheint.
 const PACKLISTE_AB_STUNDE = 20.5;
