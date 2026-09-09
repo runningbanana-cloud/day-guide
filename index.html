@@ -874,6 +874,21 @@
     width: 118px;
     flex-shrink: 0;
   }
+  /* Zimmer-Feld im Wochenplan - Struktur (Zeit/Fach) bleibt reiner Text,
+     nur der Raum ist editierbar (siehe stundenplanRaumAendern() in app.js). */
+  .stundenplan-raum-feld {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 4px 0;
+    outline: none;
+    width: 72px;
+    flex-shrink: 0;
+    text-align: right;
+  }
   .todo-ordner-label {
     font-size: 11px;
     text-transform: uppercase;
@@ -1384,7 +1399,7 @@
 <!-- ?v=N am Ende: bei jedem Deploy hochzählen! Zwingt Browser/iOS-Homescreen-App
      zum Nachladen der frischen Datei, statt eine alte gecachte Version zu
      verwenden (siehe PROJEKT-KONTEXT.md, Abschnitt "Cache-Busting"). -->
-<script src="data.js?v=16"></script>
-<script src="app.js?v=16"></script>
+<script src="data.js?v=17"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>

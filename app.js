@@ -595,9 +595,54 @@ function istWochenende() {
   return tag === 0 || tag === 6; // Sonntag oder Samstag
 }
 
+// --- Stundenplan-Überschreibungen: Tim will einzelne Angaben (z. B. das
+// Zimmer) direkt in der App ändern können, OHNE dass sich die Grundstruktur
+// (welche Lektion an welchem Wochentag/zu welcher Zeit) dadurch je verschiebt
+// - STUNDENPLAN in data.js bleibt bewusst die feste "Schablone". Deshalb
+// separat in localStorage, keyed über Wochentag+Zeit (identifiziert eine
+// Lektion eindeutig innerhalb der Schablone), NICHT über den Array-Index
+// (der wäre instabil, falls data.js sich mal ändert). Aktuell nur "room"
+// überschreibbar - bei Bedarf einfach erweitern. ---
+function ladeStundenplanUeberschreibungen() {
+  return JSON.parse(localStorage.getItem("dayguide_stundenplan_ueberschreibungen") || "{}");
+}
+function speichereStundenplanUeberschreibungen(obj) {
+  localStorage.setItem("dayguide_stundenplan_ueberschreibungen", JSON.stringify(obj));
+}
+function lektionSchluessel(weekday, time) {
+  return `${weekday}_${time}`;
+}
+
+// Von JEDER Stelle nutzen, die den Stundenplan ausgibt (Ausnahme: reine
+// Struktur-Checks wie "gibt es an diesem Tag Schule", die interessiert der
+// Raum nicht) - sonst zeigt eine Stelle weiterhin den alten Raum an.
+function effektiveStundenplan() {
+  const ueberschreibungen = ladeStundenplanUeberschreibungen();
+  return STUNDENPLAN.map(l => {
+    const ue = ueberschreibungen[lektionSchluessel(l.weekday, l.time)];
+    return ue ? { ...l, ...ue } : l;
+  });
+}
+
+// Setzt den Raum einer Lektion. Entspricht der neue Wert wieder dem
+// Original aus der Schablone, wird die Überschreibung gleich wieder entfernt
+// (= "zurücksetzen" passiert einfach dadurch, den Originalwert einzutippen).
+function stundenplanRaumAendern(weekday, time, neuerRaum) {
+  const ueberschreibungen = ladeStundenplanUeberschreibungen();
+  const key = lektionSchluessel(weekday, time);
+  const original = STUNDENPLAN.find(l => l.weekday === weekday && l.time === time);
+  const wert = neuerRaum.trim();
+  if (original && wert === (original.room || "")) {
+    delete ueberschreibungen[key];
+  } else {
+    ueberschreibungen[key] = { ...(ueberschreibungen[key] || {}), room: wert };
+  }
+  speichereStundenplanUeberschreibungen(ueberschreibungen);
+}
+
 function getHeutigeLektionen() {
   const weekday = new Date().getDay();
-  return STUNDENPLAN.filter(l => l.weekday === weekday).sort((a, b) => a.time.localeCompare(b.time));
+  return effektiveStundenplan().filter(l => l.weekday === weekday).sort((a, b) => a.time.localeCompare(b.time));
 }
 
 function zeitHeuteAls(hhmm) {
@@ -1615,7 +1660,7 @@ function loadLessons(wochenende) {
 
   const el = document.getElementById("lessons-content");
   const weekday = new Date().getDay();
-  const heute = STUNDENPLAN.filter(l => l.weekday === weekday).sort((a, b) => a.time.localeCompare(b.time));
+  const heute = effektiveStundenplan().filter(l => l.weekday === weekday).sort((a, b) => a.time.localeCompare(b.time));
 
   if (heute.length === 0) {
     el.className = "empty";
@@ -2579,13 +2624,18 @@ function setupKalenderPopup() {
   document.getElementById("kalender-next").addEventListener("click", () => kalenderMonatWechseln(1));
 }
 
+// Wochenplan ist zugleich die Stelle, an der sich der Raum pro Lektion ändern
+// lässt (z. B. bei einem kurzfristigen Raumwechsel) - Zeit/Fach/Wochentag
+// bleiben bewusst reiner Text (die "Schablone" aus STUNDENPLAN), NUR der Raum
+// ist ein editierbares Feld. Siehe stundenplanRaumAendern()/effektiveStundenplan().
 function renderWochenplan() {
   const el = document.getElementById("wochenplan-content");
   const tage = [1, 2, 3, 4, 5, 6, 0];
   const tagesNamen = { 1: "Montag", 2: "Dienstag", 3: "Mittwoch", 4: "Donnerstag", 5: "Freitag", 6: "Samstag", 0: "Sonntag" };
+  const stundenplan = effektiveStundenplan();
 
   el.innerHTML = tage.map(tag => {
-    const lektionen = STUNDENPLAN
+    const lektionen = stundenplan
       .filter(l => l.weekday === tag)
       .sort((a, b) => a.time.localeCompare(b.time));
 
@@ -2593,7 +2643,8 @@ function renderWochenplan() {
       ? lektionen.map(l => `
           <div class="lesson-row">
             <span class="lesson-time">${l.time}</span>
-            <span>${l.subject}${l.room ? " · " + l.room : ""}</span>
+            <span style="flex:1;">${l.subject}</span>
+            <input type="text" class="stundenplan-raum-feld" data-weekday="${l.weekday}" data-time="${l.time}" value="${l.room || ""}" placeholder="Zimmer" maxlength="20">
           </div>`).join("")
       : `<div class="empty">Keine Lektionen eingetragen.</div>`;
 
@@ -2607,6 +2658,17 @@ function renderWochenplan() {
 
     return `<div class="wochentag-label">${tagesNamen[tag]}</div>${inhalt}`;
   }).join("");
+
+  el.querySelectorAll(".stundenplan-raum-feld").forEach(input => {
+    input.addEventListener("change", () => {
+      stundenplanRaumAendern(Number(input.dataset.weekday), input.dataset.time, input.value);
+      // Betrifft auch andere Ansichten, die den Raum zeigen - gleich mit
+      // aktualisieren, nicht erst beim nächsten normalen Refresh.
+      loadLessons(istWochenende());
+      loadNextLesson(getTagesPhase());
+      renderMorgenStundenplan();
+    });
+  });
 }
 
 // --- Busplan (Menü): reine Leseansicht des festen Hinwegs, unabhängig von der
@@ -2655,7 +2717,7 @@ function renderBusplan() {
 function renderMorgenStundenplan() {
   const el = document.getElementById("morgen-stundenplan-content");
   const morgenWeekday = (new Date().getDay() + 1) % 7;
-  const lektionen = STUNDENPLAN
+  const lektionen = effektiveStundenplan()
     .filter(l => l.weekday === morgenWeekday)
     .sort((a, b) => a.time.localeCompare(b.time));
 

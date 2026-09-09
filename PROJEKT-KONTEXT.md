@@ -521,6 +521,37 @@ Rucksack räumt.
   nicht erst abends. Bleibt zusätzlich über Phase "abend" hinweg sichtbar (bis
   abgehakt), falls Tim es nicht sofort macht.
 
+## Stundenplan: Raum änderbar, Struktur bleibt feste Schablone
+
+Tim: will z. B. bei einem Raumwechsel den Stundenplan direkt in der App
+anpassen können - aber die Struktur (welche Lektion an welchem Wochentag/zu
+welcher Zeit) soll dabei "immer bleiben, wie eine Schablone".
+
+- **`STUNDENPLAN` in data.js bleibt unverändert die feste Schablone.** Neu:
+  `dayguide_stundenplan_ueberschreibungen` in localStorage, ein Objekt keyed
+  über `"<weekday>_<time>"` (identifiziert eine Lektion eindeutig INNERHALB der
+  Schablone - bewusst nicht über den Array-Index, der wäre instabil, falls
+  data.js sich mal ändert). Aktuell wird nur `room` überschrieben, aber die
+  Struktur ist offen für weitere Felder.
+  `ladeStundenplanUeberschreibungen()`/`speichereStundenplanUeberschreibungen()`/
+  `effektiveStundenplan()` (app.js, direkt vor `getHeutigeLektionen()`) - Letztere
+  liefert `STUNDENPLAN` mit übernommenen Überschreibungen und MUSS überall
+  verwendet werden, wo der Stundenplan angezeigt wird (`getHeutigeLektionen()`,
+  `loadLessons()`, `renderMorgenStundenplan()`, `renderWochenplan()`) - reine
+  Struktur-Checks, die den Raum nicht interessiert (`gibtEsSchuleAm()`,
+  `istSchulsporttag()`, `alleFaecher()`), bleiben bewusst bei der rohen
+  `STUNDENPLAN`-Konstante.
+- **Bearbeitet wird im Wochenplan** (Menü): jede Lektion hat dort jetzt ein
+  editierbares Zimmer-Feld (`.stundenplan-raum-feld`) statt reinem Text - Zeit
+  und Fach bleiben Text (das ist die "Schablone", die nicht anfassbar sein
+  soll). `stundenplanRaumAendern()` speichert die Überschreibung bei `change`.
+  **Automatisches Zurücksetzen:** tippt man wieder genau den Original-Raum aus
+  `STUNDENPLAN` ein, wird die Überschreibung gleich wieder gelöscht statt
+  unnötig gespeichert zu bleiben - kein separater Reset-Knopf nötig.
+- Nach einer Raumänderung werden `loadLessons()`, `loadNextLesson()` und
+  `renderMorgenStundenplan()` direkt mit aktualisiert, damit der neue Raum
+  sofort überall stimmt, nicht erst beim nächsten normalen Refresh.
+
 ## Bugfix: Notiz-Popup liess sich nicht schliessen ohne Löschen
 
 Tim: nach dem Schreiben/"Bestätigen" einer Notiz im Popup (Stift-Icon oben) blieb
